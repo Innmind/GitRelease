@@ -17,7 +17,7 @@ final class Release
         Version $version,
         Message $message
     ): void {
-        $repository->tags()->add(
+        $repository->tags()->sign(
             new Name((string) $version),
             $message
         );

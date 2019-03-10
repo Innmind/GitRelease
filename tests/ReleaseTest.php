@@ -50,7 +50,7 @@ class ReleaseTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '-a' '1.0.0' '-m' 'watev'" &&
+                return (string) $command === "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
