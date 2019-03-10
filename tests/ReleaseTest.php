@@ -8,7 +8,7 @@ use Innmind\GitRelease\{
     Version,
 };
 use Innmind\Git\{
-    Git,
+    Repository,
     Message,
 };
 use Innmind\Server\Control\{
@@ -24,11 +24,8 @@ class ReleaseTest extends TestCase
 {
     public function testInvokation()
     {
-        $release = new Release(
-            new Git(
-                $server = $this->createMock(Server::class)
-            )
-        );
+        $release = new Release;
+        $server = $this->createMock(Server::class);
         $path = new Path('/somewhere');
         $server
             ->expects($this->any())
@@ -99,7 +96,7 @@ class ReleaseTest extends TestCase
             ->willReturn(new ExitCode(0));
 
         $this->assertNull($release(
-            $path,
+            new Repository($server, $path),
             new Version(1, 0, 0),
             new Message('watev')
         ));
