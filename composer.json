@@ -1,0 +1,34 @@
+{
+    "name": "innmind/git-release",
+    "type": "library",
+    "description": "Tool to help release new packages versions",
+    "keywords": ["git", "release", "tool"],
+    "homepage": "http://github.com/Innmind/GitRelease",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Baptiste Langlade",
+            "email": "langlade.baptiste@gmail.com"
+        }
+    ],
+    "support": {
+        "issues": "http://github.com/Innmind/GitRelease/issues"
+    },
+    "require": {
+        "php": "~7.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Innmind\\GitRelease\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\Innmind\\GitRelease\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~8.0",
+        "giorgiosironi/eris": "^0.11.0"
+    }
+}
