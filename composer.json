@@ -24,7 +24,8 @@
     "autoload": {
         "psr-4": {
             "Innmind\\GitRelease\\": "src/"
-        }
+        },
+        "files": ["src/bootstrap.php"]
     },
     "autoload-dev": {
         "psr-4": {
