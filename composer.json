@@ -18,7 +18,8 @@
         "php": "~7.2",
         "innmind/immutable": "^2.13",
         "innmind/git": "^1.1",
-        "composer/semver": "^1.4"
+        "composer/semver": "^1.4",
+        "innmind/cli": "^1.7"
     },
     "autoload": {
         "psr-4": {
