@@ -273,12 +273,12 @@ class BugfixTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.0.0|||foo');
+            ->willReturn('1.1.1|||foo');
         $processes
             ->expects($this->at(2))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '-s' '-a' '1.0.1' '-m' 'watev'" &&
+                return (string) $command === "git 'tag' '-s' '-a' '1.1.2' '-m' 'watev'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -334,7 +334,7 @@ class BugfixTest extends TestCase
         $output
             ->expects($this->at(0))
             ->method('write')
-            ->with(Str::of("1.0.1\n"));
+            ->with(Str::of("1.1.2\n"));
         $output
             ->expects($this->at(1))
             ->method('write')
