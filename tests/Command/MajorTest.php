@@ -273,7 +273,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.0.0|||foo');
+            ->willReturn('1.1.1|||foo');
         $processes
             ->expects($this->at(2))
             ->method('execute')
