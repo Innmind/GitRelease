@@ -123,7 +123,7 @@ class VersionTest extends TestCase
 
                 $this->assertInstanceOf(Version::class, $next);
                 ++$major;
-                $this->assertSame("$major.$minor.$bugfix", (string) $next);
+                $this->assertSame("$major.0.0", (string) $next);
             });
     }
 
@@ -141,7 +141,7 @@ class VersionTest extends TestCase
 
                 $this->assertInstanceOf(Version::class, $next);
                 ++$minor;
-                $this->assertSame("$major.$minor.$bugfix", (string) $next);
+                $this->assertSame("$major.$minor.0", (string) $next);
             });
     }
 
