@@ -3,11 +3,7 @@ declare(strict_types = 1);
 
 namespace Innmind\GitRelease\Command;
 
-use Innmind\GitRelease\{
-    SignedRelease,
-    LatestVersion,
-    Exception\UnknownVersionFormat,
-};
+use Innmind\GitRelease\{SignedRelease, LatestVersion, Exception\UnknownVersionFormat, UnsignedRelease};
 use Innmind\Git\{
     Git,
     Message,
@@ -25,13 +21,19 @@ use Innmind\Immutable\Str;
 final class Minor implements Command
 {
     private $git;
-    private $release;
+    private $signedRelease;
+    private $unsignedRelease;
     private $latestVersion;
 
-    public function __construct(Git $git, SignedRelease $release, LatestVersion $latestVersion)
-    {
+    public function __construct(
+        Git $git,
+        SignedRelease $signedRelease,
+        UnsignedRelease $unsignedRelease,
+        LatestVersion $latestVersion
+    ) {
         $this->git = $git;
-        $this->release = $release;
+        $this->signedRelease = $signedRelease;
+        $this->unsignedRelease = $unsignedRelease;
         $this->latestVersion = $latestVersion;
     }
 
@@ -62,13 +64,19 @@ final class Minor implements Command
             return;
         }
 
-        ($this->release)($repository, $newVersion, $message);
+        if ($options->contains('no-sign')) {
+            ($this->signedRelease)($repository, $newVersion, $message);
+
+            return;
+        }
+
+        ($this->signedRelease)($repository, $newVersion, $message);
     }
 
     public function __toString(): string
     {
         return <<<USAGE
-minor
+minor --no-sign
 
 Create a new minor tag and push it
 USAGE;

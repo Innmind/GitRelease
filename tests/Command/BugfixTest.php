@@ -3,12 +3,9 @@ declare(strict_types = 1);
 
 namespace Tests\Innmind\GitRelease\Command;
 
-use Innmind\GitRelease\{
-    Command\Bugfix,
-    SignedRelease,
-    LatestVersion,
-};
+use Innmind\GitRelease\{Command\Bugfix, SignedRelease, LatestVersion, UnsignedRelease};
 use Innmind\Git\Git;
+use Innmind\Immutable\Map;
 use Innmind\Server\Control\{
     Server,
     Server\Processes,
@@ -39,6 +36,7 @@ class BugfixTest extends TestCase
             new Bugfix(
                 new Git($this->createMock(Server::class)),
                 new SignedRelease,
+                new UnsignedRelease,
                 new LatestVersion
             )
         );
@@ -47,10 +45,11 @@ class BugfixTest extends TestCase
     public function testUsage()
     {
         $this->assertSame(
-            "bugfix\n\nCreate a new bugfix tag and push it",
+            "bugfix --no-sign\n\nCreate a new bugfix tag and push it",
             (string) new Bugfix(
                 new Git($this->createMock(Server::class)),
                 new SignedRelease,
+                new UnsignedRelease,
                 new LatestVersion
             )
         );
@@ -61,6 +60,7 @@ class BugfixTest extends TestCase
         $command = new Bugfix(
             new Git($server = $this->createMock(Server::class)),
             new SignedRelease,
+            new UnsignedRelease,
             new LatestVersion
         );
         $server
@@ -136,6 +136,7 @@ class BugfixTest extends TestCase
         $command = new Bugfix(
             new Git($server = $this->createMock(Server::class)),
             new SignedRelease,
+            new UnsignedRelease,
             new LatestVersion
         );
         $server
@@ -228,11 +229,12 @@ class BugfixTest extends TestCase
         ));
     }
 
-    public function testRelease()
+    public function testSignedRelease()
     {
         $command = new Bugfix(
             new Git($server = $this->createMock(Server::class)),
             new SignedRelease,
+            new UnsignedRelease,
             new LatestVersion
         );
         $server
@@ -361,6 +363,146 @@ class BugfixTest extends TestCase
             $env,
             new Arguments,
             new Options
+        ));
+    }
+
+    public function testUnsignedRelease()
+    {
+        $command = new Bugfix(
+            new Git($server = $this->createMock(Server::class)),
+            new SignedRelease,
+            new UnsignedRelease,
+            new LatestVersion
+        );
+        $server
+            ->expects($this->any())
+            ->method('processes')
+            ->willReturn($processes = $this->createMock(Processes::class));
+        $processes
+            ->expects($this->at(0))
+            ->method('execute')
+            ->with($this->callback(static function($command): bool {
+                return (string) $command === "mkdir '-p' '/somewhere'";
+            }))
+            ->willReturn($process = $this->createMock(Process::class));
+        $process
+            ->expects($this->once())
+            ->method('wait')
+            ->will($this->returnSelf());
+        $process
+            ->expects($this->once())
+            ->method('exitCode')
+            ->willReturn(new ExitCode(0));
+        $processes
+            ->expects($this->at(1))
+            ->method('execute')
+            ->with($this->callback(static function($command): bool {
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                    $command->workingDirectory() === '/somewhere';
+            }))
+            ->willReturn($process = $this->createMock(Process::class));
+        $process
+            ->expects($this->once())
+            ->method('wait')
+            ->will($this->returnSelf());
+        $process
+            ->expects($this->once())
+            ->method('exitCode')
+            ->willReturn(new ExitCode(0));
+        $process
+            ->expects($this->once())
+            ->method('output')
+            ->willReturn($output = $this->createMock(Output::class));
+        $output
+            ->expects($this->once())
+            ->method('__toString')
+            ->willReturn('1.1.1|||foo');
+        $processes
+            ->expects($this->at(2))
+            ->method('execute')
+            ->with($this->callback(static function($command): bool {
+                return (string) $command === "git 'tag' '-a' '1.1.2' '-m' 'watev'" &&
+                    $command->workingDirectory() === '/somewhere';
+            }))
+            ->willReturn($process = $this->createMock(Process::class));
+        $process
+            ->expects($this->once())
+            ->method('wait')
+            ->will($this->returnSelf());
+        $process
+            ->expects($this->once())
+            ->method('exitCode')
+            ->willReturn(new ExitCode(0));
+        $processes
+            ->expects($this->at(3))
+            ->method('execute')
+            ->with($this->callback(static function($command): bool {
+                return (string) $command === "git 'push'" &&
+                    $command->workingDirectory() === '/somewhere';
+            }))
+            ->willReturn($process = $this->createMock(Process::class));
+        $process
+            ->expects($this->once())
+            ->method('wait')
+            ->will($this->returnSelf());
+        $process
+            ->expects($this->once())
+            ->method('exitCode')
+            ->willReturn(new ExitCode(0));
+        $processes
+            ->expects($this->at(4))
+            ->method('execute')
+            ->with($this->callback(static function($command): bool {
+                return (string) $command === "git 'push' '--tags'" &&
+                    $command->workingDirectory() === '/somewhere';
+            }))
+            ->willReturn($process = $this->createMock(Process::class));
+        $process
+            ->expects($this->once())
+            ->method('wait')
+            ->will($this->returnSelf());
+        $process
+            ->expects($this->once())
+            ->method('exitCode')
+            ->willReturn(new ExitCode(0));
+        $env = $this->createMock(Environment::class);
+        $env
+            ->expects($this->once())
+            ->method('workingDirectory')
+            ->willReturn(new Path('/somewhere'));
+        $env
+            ->expects($this->any())
+            ->method('output')
+            ->willReturn($output = $this->createMock(Writable::class));
+        $output
+            ->expects($this->at(0))
+            ->method('write')
+            ->with(Str::of("Current release: 1.1.1\n"));
+        $output
+            ->expects($this->at(1))
+            ->method('write')
+            ->with(Str::of("Next release: 1.1.2\n"));
+        $output
+            ->expects($this->at(2))
+            ->method('write')
+            ->with(Str::of('message: '));
+        $input = fopen('php://temp', 'r+');
+        fwrite($input, "watev\n");
+        $env
+            ->expects($this->once())
+            ->method('input')
+            ->willReturn(new Readable\Stream($input));
+        $env
+            ->expects($this->never())
+            ->method('error');
+
+        $options = new Map('string', 'mixed');
+        $options->put('no-sign', true);
+
+        $this->assertNull($command(
+            $env,
+            new Arguments,
+            new Options($options)
         ));
     }
 }

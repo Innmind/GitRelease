@@ -10,12 +10,13 @@ use Innmind\CLI\Commands;
 function bootstrap(OperatingSystem $os): Commands
 {
     $git = new Git($os->control());
-    $release = new SignedRelease;
+    $signedRelease = new SignedRelease;
+    $unsignedRelease = new UnsignedRelease;
     $latestVersion = new LatestVersion;
 
     return new Commands(
-        new Command\Major($git, $release, $latestVersion),
-        new Command\Minor($git, $release, $latestVersion),
-        new Command\Bugfix($git, $release, $latestVersion)
+        new Command\Major($git, $signedRelease, $unsignedRelease, $latestVersion),
+        new Command\Minor($git, $signedRelease, $unsignedRelease, $latestVersion),
+        new Command\Bugfix($git, $signedRelease, $unsignedRelease, $latestVersion)
     );
 }
