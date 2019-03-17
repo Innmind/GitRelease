@@ -10,7 +10,7 @@ use Innmind\CLI\Commands;
 function bootstrap(OperatingSystem $os): Commands
 {
     $git = new Git($os->control());
-    $release = new Release;
+    $release = new SignedRelease;
     $latestVersion = new LatestVersion;
 
     return new Commands(

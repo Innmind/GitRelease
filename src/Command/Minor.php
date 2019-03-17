@@ -4,7 +4,7 @@ declare(strict_types = 1);
 namespace Innmind\GitRelease\Command;
 
 use Innmind\GitRelease\{
-    Release,
+    SignedRelease,
     LatestVersion,
     Exception\UnknownVersionFormat,
 };
@@ -28,7 +28,7 @@ final class Minor implements Command
     private $release;
     private $latestVersion;
 
-    public function __construct(Git $git, Release $release, LatestVersion $latestVersion)
+    public function __construct(Git $git, SignedRelease $release, LatestVersion $latestVersion)
     {
         $this->git = $git;
         $this->release = $release;

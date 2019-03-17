@@ -8,9 +8,8 @@ use Innmind\Git\{
     Message,
     Repository\Tag\Name,
 };
-use Innmind\Url\PathInterface;
 
-final class Release
+final class SignedRelease
 {
     public function __invoke(
         Repository $repository,

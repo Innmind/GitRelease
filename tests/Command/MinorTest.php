@@ -5,7 +5,7 @@ namespace Tests\Innmind\GitRelease\Command;
 
 use Innmind\GitRelease\{
     Command\Minor,
-    Release,
+    SignedRelease,
     LatestVersion,
 };
 use Innmind\Git\Git;
@@ -38,7 +38,7 @@ class MinorTest extends TestCase
             Command::class,
             new Minor(
                 new Git($this->createMock(Server::class)),
-                new Release,
+                new SignedRelease,
                 new LatestVersion
             )
         );
@@ -50,7 +50,7 @@ class MinorTest extends TestCase
             "minor\n\nCreate a new minor tag and push it",
             (string) new Minor(
                 new Git($this->createMock(Server::class)),
-                new Release,
+                new SignedRelease,
                 new LatestVersion
             )
         );
@@ -60,7 +60,7 @@ class MinorTest extends TestCase
     {
         $command = new Minor(
             new Git($server = $this->createMock(Server::class)),
-            new Release,
+            new SignedRelease,
             new LatestVersion
         );
         $server
@@ -135,7 +135,7 @@ class MinorTest extends TestCase
     {
         $command = new Minor(
             new Git($server = $this->createMock(Server::class)),
-            new Release,
+            new SignedRelease,
             new LatestVersion
         );
         $server
@@ -232,7 +232,7 @@ class MinorTest extends TestCase
     {
         $command = new Minor(
             new Git($server = $this->createMock(Server::class)),
-            new Release,
+            new SignedRelease,
             new LatestVersion
         );
         $server
