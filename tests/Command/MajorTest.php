@@ -193,9 +193,13 @@ class MajorTest extends TestCase
         $output
             ->expects($this->at(0))
             ->method('write')
-            ->with(Str::of("2.0.0\n"));
+            ->with(Str::of("Current release: 1.0.0\n"));
         $output
             ->expects($this->at(1))
+            ->method('write')
+            ->with(Str::of("Next release: 2.0.0\n"));
+        $output
+            ->expects($this->at(2))
             ->method('write')
             ->with(Str::of('message: '));
         $input = fopen('php://temp', 'r+');
@@ -334,9 +338,13 @@ class MajorTest extends TestCase
         $output
             ->expects($this->at(0))
             ->method('write')
-            ->with(Str::of("2.0.0\n"));
+            ->with(Str::of("Current release: 1.1.1\n"));
         $output
             ->expects($this->at(1))
+            ->method('write')
+            ->with(Str::of("Next release: 2.0.0\n"));
+        $output
+            ->expects($this->at(2))
             ->method('write')
             ->with(Str::of('message: '));
         $input = fopen('php://temp', 'r+');

@@ -40,7 +40,8 @@ final class Minor implements Command
         $repository = $this->git->repository($env->workingDirectory());
 
         try {
-            $version = ($this->latestVersion)($repository)->increaseMinor();
+            $version = ($this->latestVersion)($repository);
+            $newVersion = $version->increaseMinor();
         } catch (UnknownVersionFormat $e) {
             $env->error()->write(Str::of("Unsupported tag name format\n"));
             $env->exit(1);
@@ -48,7 +49,8 @@ final class Minor implements Command
             return;
         }
 
-        $env->output()->write(Str::of("$version\n"));
+        $env->output()->write(Str::of("Current release: $version\n"));
+        $env->output()->write(Str::of("Next release: $newVersion\n"));
         $message = (new Question('message:'))($env->input(), $env->output());
 
         try {
@@ -60,7 +62,7 @@ final class Minor implements Command
             return;
         }
 
-        ($this->release)($repository, $version, $message);
+        ($this->release)($repository, $newVersion, $message);
     }
 
     public function __toString(): string
