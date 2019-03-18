@@ -502,7 +502,7 @@ class BugfixTest extends TestCase
             ->method('error');
 
         $options = new Map('string', 'mixed');
-        $options->put('no-sign', true);
+        $options = $options->put('no-sign', true);
 
         $this->assertNull($command(
             $env,
