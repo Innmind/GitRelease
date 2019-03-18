@@ -3,7 +3,12 @@ declare(strict_types = 1);
 
 namespace Innmind\GitRelease\Command;
 
-use Innmind\GitRelease\{SignedRelease, LatestVersion, Exception\UnknownVersionFormat, UnsignedRelease};
+use Innmind\GitRelease\{
+    SignedRelease,
+    LatestVersion,
+    Exception\UnknownVersionFormat,
+    UnsignedRelease,
+};
 use Innmind\Git\{
     Git,
     Message,

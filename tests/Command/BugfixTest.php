@@ -3,7 +3,12 @@ declare(strict_types = 1);
 
 namespace Tests\Innmind\GitRelease\Command;
 
-use Innmind\GitRelease\{Command\Bugfix, SignedRelease, LatestVersion, UnsignedRelease};
+use Innmind\GitRelease\{
+    Command\Bugfix,
+    SignedRelease,
+    LatestVersion,
+    UnsignedRelease,
+};
 use Innmind\Git\Git;
 use Innmind\Immutable\Map;
 use Innmind\Server\Control\{
