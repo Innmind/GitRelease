@@ -4,9 +4,10 @@ declare(strict_types = 1);
 namespace Innmind\GitRelease\Command;
 
 use Innmind\GitRelease\{
-    Release,
+    SignedRelease,
     LatestVersion,
     Exception\UnknownVersionFormat,
+    UnsignedRelease,
 };
 use Innmind\Git\{
     Git,
@@ -25,13 +26,19 @@ use Innmind\Immutable\Str;
 final class Major implements Command
 {
     private $git;
-    private $release;
+    private $signedRelease;
+    private $unsignedRelease;
     private $latestVersion;
 
-    public function __construct(Git $git, Release $release, LatestVersion $latestVersion)
-    {
+    public function __construct(
+        Git $git,
+        SignedRelease $signedRelease,
+        UnsignedRelease $unsignedRelease,
+        LatestVersion $latestVersion
+    ) {
         $this->git = $git;
-        $this->release = $release;
+        $this->signedRelease = $signedRelease;
+        $this->unsignedRelease = $unsignedRelease;
         $this->latestVersion = $latestVersion;
     }
 
@@ -62,13 +69,19 @@ final class Major implements Command
             return;
         }
 
-        ($this->release)($repository, $newVersion, $message);
+        if ($options->contains('no-sign')) {
+            ($this->unsignedRelease)($repository, $newVersion, $message);
+
+            return;
+        }
+
+        ($this->signedRelease)($repository, $newVersion, $message);
     }
 
     public function __toString(): string
     {
         return <<<USAGE
-major
+major --no-sign
 
 Create a new major tag and push it
 USAGE;
