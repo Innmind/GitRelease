@@ -4,7 +4,7 @@ declare(strict_types = 1);
 namespace Tests\Innmind\GitRelease;
 
 use Innmind\GitRelease\{
-    Release,
+    SignedRelease,
     Version,
 };
 use Innmind\Git\{
@@ -20,11 +20,11 @@ use Innmind\Server\Control\{
 use Innmind\Url\Path;
 use PHPUnit\Framework\TestCase;
 
-class ReleaseTest extends TestCase
+class SignedReleaseTest extends TestCase
 {
     public function testInvokation()
     {
-        $release = new Release;
+        $release = new SignedRelease;
         $server = $this->createMock(Server::class);
         $path = new Path('/somewhere');
         $server

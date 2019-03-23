@@ -8,16 +8,15 @@ use Innmind\Git\{
     Message,
     Repository\Tag\Name,
 };
-use Innmind\Url\PathInterface;
 
-final class Release
+final class UnsignedRelease
 {
     public function __invoke(
         Repository $repository,
         Version $version,
         Message $message
     ): void {
-        $repository->tags()->sign(
+        $repository->tags()->add(
             new Name((string) $version),
             $message
         );
