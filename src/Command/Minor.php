@@ -70,7 +70,7 @@ final class Minor implements Command
         }
 
         if ($options->contains('no-sign')) {
-            ($this->signedRelease)($repository, $newVersion, $message);
+            ($this->unsignedRelease)($repository, $newVersion, $message);
 
             return;
         }
