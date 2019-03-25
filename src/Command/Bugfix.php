@@ -60,16 +60,22 @@ final class Bugfix implements Command
         $env->output()->write(Str::of("Next release: $newVersion\n"));
         $message = (new Question('message:'))($env->input(), $env->output());
 
+        $hasNoSignOption = $options->contains('no-sign');
+
         try {
             $message = new Message((string) $message);
         } catch (DomainException $e) {
-            $env->error()->write(Str::of("Invalid message\n"));
-            $env->exit(1);
+            if (!$hasNoSignOption) {
+                $env->error()->write(Str::of("Invalid message\n"));
+                $env->exit(1);
 
-            return;
+                return;
+            }
+
+            $message = null;
         }
 
-        if ($options->contains('no-sign')) {
+        if ($hasNoSignOption) {
             ($this->unsignedRelease)($repository, $newVersion, $message);
 
             return;
