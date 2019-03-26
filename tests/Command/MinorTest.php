@@ -426,7 +426,7 @@ class MinorTest extends TestCase
             ->expects($this->at(2))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '-s' '-a' '1.2.0' '-m' 'watev'" &&
+                return (string) $command === "git 'tag' '1.2.0' '-a' '-m' 'watev'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
