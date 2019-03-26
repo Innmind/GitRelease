@@ -426,7 +426,7 @@ class MajorTest extends TestCase
             ->expects($this->at(2))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '-a' '2.0.0' '-m' 'watev'" &&
+                return (string) $command === "git 'tag' '2.0.0' '-a' '-m' 'watev'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
