@@ -14,7 +14,7 @@ final class UnsignedRelease
     public function __invoke(
         Repository $repository,
         Version $version,
-        ?Message $message = null
+        Message $message = null
     ): void {
         $repository->tags()->add(
             new Name((string) $version),
