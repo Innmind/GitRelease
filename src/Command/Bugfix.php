@@ -58,7 +58,11 @@ final class Bugfix implements Command
 
         $env->output()->write(Str::of("Current release: $version\n"));
         $env->output()->write(Str::of("Next release: $newVersion\n"));
-        $message = (new Question('message:'))($env->input(), $env->output());
+
+        $message = null;
+        if (!$options->contains('no-interactive')) {
+            $message = (new Question('message:'))($env->input(), $env->output());
+        }
 
         $isSignedRelease = !$options->contains('no-sign');
 
@@ -87,7 +91,7 @@ final class Bugfix implements Command
     public function __toString(): string
     {
         return <<<USAGE
-bugfix --no-sign
+bugfix --no-sign --no-interactive
 
 Create a new bugfix tag and push it
 USAGE;
