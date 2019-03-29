@@ -59,8 +59,9 @@ final class Major implements Command
         $env->output()->write(Str::of("Current release: $version\n"));
         $env->output()->write(Str::of("Next release: $newVersion\n"));
 
-        $message = null;
-        if (!$options->contains('no-interactive')) {
+        if ($options->contains('message')) {
+            $message = $options->get('message');
+        } else {
             $message = (new Question('message:'))($env->input(), $env->output());
         }
 
@@ -91,7 +92,7 @@ final class Major implements Command
     public function __toString(): string
     {
         return <<<USAGE
-major --no-sign --no-interactive
+major --no-sign --message=
 
 Create a new major tag and push it
 USAGE;
