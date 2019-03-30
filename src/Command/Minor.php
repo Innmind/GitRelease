@@ -58,7 +58,12 @@ final class Minor implements Command
 
         $env->output()->write(Str::of("Current release: $version\n"));
         $env->output()->write(Str::of("Next release: $newVersion\n"));
-        $message = (new Question('message:'))($env->input(), $env->output());
+
+        if ($options->contains('message')) {
+            $message = $options->get('message');
+        } else {
+            $message = (new Question('message:'))($env->input(), $env->output());
+        }
 
         $isSignedRelease = !$options->contains('no-sign');
 
@@ -87,7 +92,7 @@ final class Minor implements Command
     public function __toString(): string
     {
         return <<<USAGE
-minor --no-sign
+minor --no-sign --message=
 
 Create a new minor tag and push it
 USAGE;
