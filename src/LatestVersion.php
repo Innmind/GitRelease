@@ -11,7 +11,6 @@ use Innmind\Git\{
     Repository,
     Repository\Tag,
 };
-use Composer\Semver\Semver;
 
 final class LatestVersion
 {
@@ -23,17 +22,14 @@ final class LatestVersion
             return new Version(0, 0, 0);
         }
 
-        $versions = $tags->reduce(
-            [],
-            static function(array $versions, Tag $tag): array {
-                $versions[] = (string) $tag->name();
-
-                return $versions;
-            }
-        );
+        $versions = $tags->sort(static function(Tag $a, Tag $b): bool {
+            return $b->date()->aheadOf($a->date());
+        });
 
         try {
-            return Version::of(Semver::rsort($versions)[0]);
+            return Version::of(
+                (string) $versions->first()->name()
+            );
         } catch (DomainException $e) {
             throw new UnknownVersionFormat($e->getMessage());
         }

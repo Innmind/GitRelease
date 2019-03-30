@@ -17,6 +17,10 @@ use Innmind\Server\Control\{
     Server\Process\Output,
 };
 use Innmind\Url\Path;
+use Innmind\TimeContinuum\{
+    TimeContinuum\Earth,
+    Timezone\Earth\UTC,
+};
 use PHPUnit\Framework\TestCase;
 
 class LatestVersionTest extends TestCase
@@ -31,7 +35,7 @@ class LatestVersionTest extends TestCase
 
     public function testLatestVersion()
     {
-        $version = $this->fromOutput("1.0.0|||foo\n1.10.0|||bar\n1.2.0|||baz");
+        $version = $this->fromOutput("1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100\n1.10.0|||bar|||Mon, 18 Mar 2019 12:09:24 +0100\n1.2.0|||baz|||Sun, 17 Mar 2019 12:09:24 +0100");
 
         $this->assertInstanceOf(Version::class, $version);
         $this->assertSame('1.10.0', (string) $version);
@@ -42,7 +46,7 @@ class LatestVersionTest extends TestCase
         $this->expectException(UnknownVersionFormat::class);
         $this->expectExceptionMessage('v1.0.0');
 
-        $this->fromOutput('v1.0.0|||foo');
+        $this->fromOutput('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
     }
 
     private function fromOutput(string $data)
@@ -72,7 +76,7 @@ class LatestVersionTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -94,7 +98,8 @@ class LatestVersionTest extends TestCase
             ->willReturn($data);
         $repository = new Repository(
             $server,
-            new Path('/somewhere')
+            new Path('/somewhere'),
+            new Earth(new UTC)
         );
 
         return $latestVersion($repository);

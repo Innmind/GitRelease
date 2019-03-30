@@ -18,6 +18,10 @@ use Innmind\Server\Control\{
     Server\Process\ExitCode,
 };
 use Innmind\Url\Path;
+use Innmind\TimeContinuum\{
+    TimeContinuum\Earth,
+    Timezone\Earth\UTC,
+};
 use PHPUnit\Framework\TestCase;
 
 class SignedReleaseTest extends TestCase
@@ -96,7 +100,7 @@ class SignedReleaseTest extends TestCase
             ->willReturn(new ExitCode(0));
 
         $this->assertNull($release(
-            new Repository($server, $path),
+            new Repository($server, $path, new Earth(new UTC)),
             new Version(1, 0, 0),
             new Message('watev')
         ));

@@ -29,6 +29,10 @@ use Innmind\Stream\{
     Writable,
     Readable,
 };
+use Innmind\TimeContinuum\{
+    TimeContinuum\Earth,
+    Timezone\Earth\UTC,
+};
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -39,7 +43,7 @@ class MajorTest extends TestCase
         $this->assertInstanceOf(
             Command::class,
             new Major(
-                new Git($this->createMock(Server::class)),
+                new Git($this->createMock(Server::class), new Earth(new UTC)),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion
@@ -52,7 +56,7 @@ class MajorTest extends TestCase
         $this->assertSame(
             "major --no-sign --message=\n\nCreate a new major tag and push it",
             (string) new Major(
-                new Git($this->createMock(Server::class)),
+                new Git($this->createMock(Server::class), new Earth(new UTC)),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion
@@ -63,7 +67,7 @@ class MajorTest extends TestCase
     public function testExitWhenUnknownVersionFormat()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -91,7 +95,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -110,7 +114,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('v1.0.0|||foo');
+            ->willReturn('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $env = $this->createMock(Environment::class);
         $env
             ->expects($this->once())
@@ -139,7 +143,7 @@ class MajorTest extends TestCase
     public function testExitWhenEmptyMessageWithSignedRelease()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -167,7 +171,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -186,7 +190,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.0.0|||foo');
+            ->willReturn('1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $env = $this->createMock(Environment::class);
         $env
             ->expects($this->once())
@@ -237,7 +241,7 @@ class MajorTest extends TestCase
     public function testExitWhenEmptyMessageWithUnsignedRelease()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -265,7 +269,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -284,7 +288,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.1.1|||foo');
+            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $processes
             ->expects($this->at(2))
             ->method('execute')
@@ -377,7 +381,7 @@ class MajorTest extends TestCase
     public function testSignedRelease()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -405,7 +409,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -424,7 +428,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.1.1|||foo');
+            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $processes
             ->expects($this->at(2))
             ->method('execute')
@@ -514,7 +518,7 @@ class MajorTest extends TestCase
     public function testUnsignedRelease()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -542,7 +546,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -561,7 +565,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.1.1|||foo');
+            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $processes
             ->expects($this->at(2))
             ->method('execute')
@@ -654,7 +658,7 @@ class MajorTest extends TestCase
     public function testSignedReleaseWithMessageOption()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -682,7 +686,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -701,7 +705,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.1.1|||foo');
+            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $processes
             ->expects($this->at(2))
             ->method('execute')
@@ -784,7 +788,7 @@ class MajorTest extends TestCase
     public function testExitWhenSignedReleaseWithEmptyMessageOption()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -812,7 +816,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -831,7 +835,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.0.0|||foo');
+            ->willReturn('1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $env = $this->createMock(Environment::class);
         $env
             ->expects($this->once())
@@ -875,7 +879,7 @@ class MajorTest extends TestCase
     public function testUnsignedReleaseWithMessageOption()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -903,7 +907,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -922,7 +926,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.1.1|||foo');
+            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $processes
             ->expects($this->at(2))
             ->method('execute')
@@ -1006,7 +1010,7 @@ class MajorTest extends TestCase
     public function testUnsignedReleaseWithEmptyMessageOption()
     {
         $command = new Major(
-            new Git($server = $this->createMock(Server::class)),
+            new Git($server = $this->createMock(Server::class), new Earth(new UTC)),
             new SignedRelease,
             new UnsignedRelease,
             new LatestVersion
@@ -1034,7 +1038,7 @@ class MajorTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)'" &&
+                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
                     $command->workingDirectory() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
@@ -1053,7 +1057,7 @@ class MajorTest extends TestCase
         $output
             ->expects($this->once())
             ->method('__toString')
-            ->willReturn('1.1.1|||foo');
+            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $processes
             ->expects($this->at(2))
             ->method('execute')
