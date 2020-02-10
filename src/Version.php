@@ -28,15 +28,15 @@ final class Version
         $version = Str::of($version);
 
         if (!$version->matches('~^\d+\.\d+\.\d+$~')) {
-            throw new DomainException((string) $version);
+            throw new DomainException($version->toString());
         }
 
         $parts = $version->split('.');
 
         return new self(
-            (int) (string) $parts->get(0),
-            (int) (string) $parts->get(1),
-            (int) (string) $parts->get(2)
+            (int) $parts->get(0)->toString(),
+            (int) $parts->get(1)->toString(),
+            (int) $parts->get(2)->toString(),
         );
     }
 

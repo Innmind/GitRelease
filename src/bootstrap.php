@@ -18,8 +18,8 @@ function bootstrap(OperatingSystem $os): Commands
     $latestVersion = new LatestVersion;
 
     return new Commands(
-        new Command\Major($git, $signedRelease, $unsignedRelease, $latestVersion),
-        new Command\Minor($git, $signedRelease, $unsignedRelease, $latestVersion),
-        new Command\Bugfix($git, $signedRelease, $unsignedRelease, $latestVersion)
+        new Command\Major($git, $signedRelease, $unsignedRelease, $latestVersion, $os->sockets()),
+        new Command\Minor($git, $signedRelease, $unsignedRelease, $latestVersion, $os->sockets()),
+        new Command\Bugfix($git, $signedRelease, $unsignedRelease, $latestVersion, $os->sockets()),
     );
 }

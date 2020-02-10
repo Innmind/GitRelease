@@ -21,6 +21,7 @@ use Innmind\CLI\{
     Environment,
     Question\Question,
 };
+use Innmind\OperatingSystem\Sockets;
 use Innmind\Immutable\Str;
 
 final class Major implements Command
@@ -29,17 +30,20 @@ final class Major implements Command
     private SignedRelease $signedRelease;
     private UnsignedRelease $unsignedRelease;
     private LatestVersion $latestVersion;
+    private Sockets $sockets;
 
     public function __construct(
         Git $git,
         SignedRelease $signedRelease,
         UnsignedRelease $unsignedRelease,
-        LatestVersion $latestVersion
+        LatestVersion $latestVersion,
+        Sockets $sockets
     ) {
         $this->git = $git;
         $this->signedRelease = $signedRelease;
         $this->unsignedRelease = $unsignedRelease;
         $this->latestVersion = $latestVersion;
+        $this->sockets = $sockets;
     }
 
     public function __invoke(Environment $env, Arguments $arguments, Options $options): void
@@ -62,13 +66,13 @@ final class Major implements Command
         if ($options->contains('message')) {
             $message = $options->get('message');
         } else {
-            $message = (new Question('message:'))($env->input(), $env->output());
+            $message = (new Question('message:'))($env, $this->sockets)->toString();
         }
 
         $isSignedRelease = !$options->contains('no-sign');
 
         try {
-            $message = new Message((string) $message);
+            $message = new Message($message);
         } catch (DomainException $e) {
             if ($isSignedRelease) {
                 $env->error()->write(Str::of("Invalid message\n"));
@@ -89,7 +93,7 @@ final class Major implements Command
         ($this->signedRelease)($repository, $newVersion, $message);
     }
 
-    public function __toString(): string
+    public function toString(): string
     {
         return <<<USAGE
 major --no-sign --message=

@@ -18,9 +18,9 @@ use Innmind\Server\Control\{
     Server\Process\ExitCode,
 };
 use Innmind\Url\Path;
-use Innmind\TimeContinuum\{
-    TimeContinuum\Earth,
-    Timezone\Earth\UTC,
+use Innmind\TimeContinuum\Earth\{
+    Clock,
+    Timezone\UTC,
 };
 use PHPUnit\Framework\TestCase;
 
@@ -30,7 +30,7 @@ class SignedReleaseTest extends TestCase
     {
         $release = new SignedRelease;
         $server = $this->createMock(Server::class);
-        $path = new Path('/somewhere');
+        $path = Path::of('/somewhere');
         $server
             ->expects($this->any())
             ->method('processes')
@@ -39,13 +39,12 @@ class SignedReleaseTest extends TestCase
             ->expects($this->at(0))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "mkdir '-p' '/somewhere'";
+                return $command->toString() === "mkdir '-p' '/somewhere'";
             }))
             ->willReturn($process = $this->createMock(Process::class));
         $process
             ->expects($this->once())
-            ->method('wait')
-            ->will($this->returnSelf());
+            ->method('wait');
         $process
             ->expects($this->once())
             ->method('exitCode')
@@ -54,14 +53,13 @@ class SignedReleaseTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'" &&
-                    $command->workingDirectory() === '/somewhere';
+                return $command->toString() === "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'" &&
+                    $command->workingDirectory()->toString() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
         $process
             ->expects($this->once())
-            ->method('wait')
-            ->will($this->returnSelf());
+            ->method('wait');
         $process
             ->expects($this->once())
             ->method('exitCode')
@@ -70,14 +68,13 @@ class SignedReleaseTest extends TestCase
             ->expects($this->at(2))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'push'" &&
-                    $command->workingDirectory() === '/somewhere';
+                return $command->toString() === "git 'push'" &&
+                    $command->workingDirectory()->toString() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
         $process
             ->expects($this->once())
-            ->method('wait')
-            ->will($this->returnSelf());
+            ->method('wait');
         $process
             ->expects($this->once())
             ->method('exitCode')
@@ -86,21 +83,20 @@ class SignedReleaseTest extends TestCase
             ->expects($this->at(3))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'push' '--tags'" &&
-                    $command->workingDirectory() === '/somewhere';
+                return $command->toString() === "git 'push' '--tags'" &&
+                    $command->workingDirectory()->toString() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
         $process
             ->expects($this->once())
-            ->method('wait')
-            ->will($this->returnSelf());
+            ->method('wait');
         $process
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
 
         $this->assertNull($release(
-            new Repository($server, $path, new Earth(new UTC)),
+            new Repository($server, $path, new Clock(new UTC)),
             new Version(1, 0, 0),
             new Message('watev')
         ));

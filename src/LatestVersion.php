@@ -28,7 +28,7 @@ final class LatestVersion
 
         try {
             return Version::of(
-                (string) $versions->first()->name()
+                $versions->first()->name()->toString(),
             );
         } catch (DomainException $e) {
             throw new UnknownVersionFormat($e->getMessage());
