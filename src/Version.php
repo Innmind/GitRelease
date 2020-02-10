@@ -45,7 +45,7 @@ final class Version
         return new self(
             $this->major + 1,
             0,
-            0
+            0,
         );
     }
 
@@ -54,7 +54,7 @@ final class Version
         return new self(
             $this->major,
             $this->minor + 1,
-            0
+            0,
         );
     }
 
@@ -63,7 +63,7 @@ final class Version
         return new self(
             $this->major,
             $this->minor,
-            $this->bugfix + 1
+            $this->bugfix + 1,
         );
     }
 

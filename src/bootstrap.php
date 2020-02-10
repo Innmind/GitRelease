@@ -11,7 +11,7 @@ function bootstrap(OperatingSystem $os): Commands
 {
     $git = new Git(
         $os->control(),
-        $os->clock()
+        $os->clock(),
     );
     $signedRelease = new SignedRelease;
     $unsignedRelease = new UnsignedRelease;

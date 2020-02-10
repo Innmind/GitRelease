@@ -18,7 +18,7 @@ final class SignedRelease
     ): void {
         $repository->tags()->sign(
             new Name($version->toString()),
-            $message
+            $message,
         );
         $repository->push();
         $repository->tags()->push();
