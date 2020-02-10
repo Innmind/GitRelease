@@ -28,7 +28,7 @@ class VersionTest extends TestCase
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertSame(
                     "$major.$minor.$bugfix",
-                    (string) new Version($major, $minor, $bugfix)
+                    (new Version($major, $minor, $bugfix))->toString(),
                 );
             });
     }
@@ -93,7 +93,7 @@ class VersionTest extends TestCase
                 $version = Version::of("$major.$minor.$bugfix");
 
                 $this->assertInstanceOf(Version::class, $version);
-                $this->assertSame("$major.$minor.$bugfix", (string) $version);
+                $this->assertSame("$major.$minor.$bugfix", $version->toString());
             });
     }
 
@@ -123,7 +123,7 @@ class VersionTest extends TestCase
 
                 $this->assertInstanceOf(Version::class, $next);
                 ++$major;
-                $this->assertSame("$major.0.0", (string) $next);
+                $this->assertSame("$major.0.0", $next->toString());
             });
     }
 
@@ -141,7 +141,7 @@ class VersionTest extends TestCase
 
                 $this->assertInstanceOf(Version::class, $next);
                 ++$minor;
-                $this->assertSame("$major.$minor.0", (string) $next);
+                $this->assertSame("$major.$minor.0", $next->toString());
             });
     }
 
@@ -159,7 +159,7 @@ class VersionTest extends TestCase
 
                 $this->assertInstanceOf(Version::class, $next);
                 ++$bugfix;
-                $this->assertSame("$major.$minor.$bugfix", (string) $next);
+                $this->assertSame("$major.$minor.$bugfix", $next->toString());
             });
     }
 }

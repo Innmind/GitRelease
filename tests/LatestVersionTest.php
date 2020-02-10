@@ -30,7 +30,7 @@ class LatestVersionTest extends TestCase
         $version = $this->fromOutput('');
 
         $this->assertInstanceOf(Version::class, $version);
-        $this->assertSame('0.0.0', (string) $version);
+        $this->assertSame('0.0.0', $version->toString());
     }
 
     public function testLatestVersion()
@@ -38,7 +38,7 @@ class LatestVersionTest extends TestCase
         $version = $this->fromOutput("1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100\n1.10.0|||bar|||Mon, 18 Mar 2019 12:09:24 +0100\n1.2.0|||baz|||Sun, 17 Mar 2019 12:09:24 +0100");
 
         $this->assertInstanceOf(Version::class, $version);
-        $this->assertSame('1.10.0', (string) $version);
+        $this->assertSame('1.10.0', $version->toString());
     }
 
     public function testThrowWhenUnknownFormat()

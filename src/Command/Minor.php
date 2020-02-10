@@ -60,8 +60,8 @@ final class Minor implements Command
             return;
         }
 
-        $env->output()->write(Str::of("Current release: $version\n"));
-        $env->output()->write(Str::of("Next release: $newVersion\n"));
+        $env->output()->write(Str::of("Current release: {$version->toString()}\n"));
+        $env->output()->write(Str::of("Next release: {$newVersion->toString()}\n"));
 
         if ($options->contains('message')) {
             $message = $options->get('message');
