@@ -17,8 +17,8 @@ final class UnsignedRelease
         Message $message = null
     ): void {
         $repository->tags()->add(
-            new Name((string) $version),
-            $message
+            new Name($version->toString()),
+            $message,
         );
         $repository->push();
         $repository->tags()->push();

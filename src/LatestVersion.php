@@ -22,13 +22,13 @@ final class LatestVersion
             return new Version(0, 0, 0);
         }
 
-        $versions = $tags->sort(static function(Tag $a, Tag $b): bool {
-            return $b->date()->aheadOf($a->date());
+        $versions = $tags->sort(static function(Tag $a, Tag $b): int {
+            return (int) $b->date()->aheadOf($a->date());
         });
 
         try {
             return Version::of(
-                (string) $versions->first()->name()
+                $versions->first()->name()->toString(),
             );
         } catch (DomainException $e) {
             throw new UnknownVersionFormat($e->getMessage());

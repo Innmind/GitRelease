@@ -17,9 +17,9 @@ use Innmind\Server\Control\{
     Server\Process\Output,
 };
 use Innmind\Url\Path;
-use Innmind\TimeContinuum\{
-    TimeContinuum\Earth,
-    Timezone\Earth\UTC,
+use Innmind\TimeContinuum\Earth\{
+    Clock,
+    Timezone\UTC,
 };
 use PHPUnit\Framework\TestCase;
 
@@ -30,7 +30,7 @@ class LatestVersionTest extends TestCase
         $version = $this->fromOutput('');
 
         $this->assertInstanceOf(Version::class, $version);
-        $this->assertSame('0.0.0', (string) $version);
+        $this->assertSame('0.0.0', $version->toString());
     }
 
     public function testLatestVersion()
@@ -38,7 +38,7 @@ class LatestVersionTest extends TestCase
         $version = $this->fromOutput("1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100\n1.10.0|||bar|||Mon, 18 Mar 2019 12:09:24 +0100\n1.2.0|||baz|||Sun, 17 Mar 2019 12:09:24 +0100");
 
         $this->assertInstanceOf(Version::class, $version);
-        $this->assertSame('1.10.0', (string) $version);
+        $this->assertSame('1.10.0', $version->toString());
     }
 
     public function testThrowWhenUnknownFormat()
@@ -61,13 +61,12 @@ class LatestVersionTest extends TestCase
             ->expects($this->at(0))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "mkdir '-p' '/somewhere'";
+                return $command->toString() === "mkdir '-p' '/somewhere'";
             }))
             ->willReturn($process = $this->createMock(Process::class));
         $process
             ->expects($this->once())
-            ->method('wait')
-            ->will($this->returnSelf());
+            ->method('wait');
         $process
             ->expects($this->once())
             ->method('exitCode')
@@ -76,14 +75,13 @@ class LatestVersionTest extends TestCase
             ->expects($this->at(1))
             ->method('execute')
             ->with($this->callback(static function($command): bool {
-                return (string) $command === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory() === '/somewhere';
+                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                    $command->workingDirectory()->toString() === '/somewhere';
             }))
             ->willReturn($process = $this->createMock(Process::class));
         $process
             ->expects($this->once())
-            ->method('wait')
-            ->will($this->returnSelf());
+            ->method('wait');
         $process
             ->expects($this->once())
             ->method('exitCode')
@@ -94,12 +92,12 @@ class LatestVersionTest extends TestCase
             ->willReturn($output = $this->createMock(Output::class));
         $output
             ->expects($this->once())
-            ->method('__toString')
+            ->method('toString')
             ->willReturn($data);
         $repository = new Repository(
             $server,
-            new Path('/somewhere'),
-            new Earth(new UTC)
+            Path::of('/somewhere'),
+            new Clock(new UTC)
         );
 
         return $latestVersion($repository);

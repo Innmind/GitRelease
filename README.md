@@ -1,10 +1,8 @@
 # Git Release
 
-| `develop` |
-|-----------|
-| [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/Innmind/GitRelease/badges/quality-score.png?b=develop)](https://scrutinizer-ci.com/g/Innmind/GitRelease/?branch=develop) |
-| [![Code Coverage](https://scrutinizer-ci.com/g/Innmind/GitRelease/badges/coverage.png?b=develop)](https://scrutinizer-ci.com/g/Innmind/GitRelease/?branch=develop) |
-| [![Build Status](https://scrutinizer-ci.com/g/Innmind/GitRelease/badges/build.png?b=develop)](https://scrutinizer-ci.com/g/Innmind/GitRelease/build-status/develop) |
+[![Build Status](https://github.com/Innmind/GitRelease/workflows/CI/badge.svg)](https://github.com/Innmind/GitRelease/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/Innmind/GitRelease/branch/develop/graph/badge.svg)](https://codecov.io/gh/Innmind/GitRelease)
+[![Type Coverage](https://shepherd.dev/github/Innmind/GitRelease/coverage.svg)](https://shepherd.dev/github/Innmind/GitRelease)
 
 Small cli utility to create a new tag and push it.
 

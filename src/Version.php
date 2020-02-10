@@ -8,9 +8,9 @@ use Innmind\Immutable\Str;
 
 final class Version
 {
-    private $major;
-    private $minor;
-    private $bugfix;
+    private int $major;
+    private int $minor;
+    private int $bugfix;
 
     public function __construct(int $major, int $minor, int $bugfix)
     {
@@ -28,15 +28,15 @@ final class Version
         $version = Str::of($version);
 
         if (!$version->matches('~^\d+\.\d+\.\d+$~')) {
-            throw new DomainException((string) $version);
+            throw new DomainException($version->toString());
         }
 
         $parts = $version->split('.');
 
         return new self(
-            (int) (string) $parts->get(0),
-            (int) (string) $parts->get(1),
-            (int) (string) $parts->get(2)
+            (int) $parts->get(0)->toString(),
+            (int) $parts->get(1)->toString(),
+            (int) $parts->get(2)->toString(),
         );
     }
 
@@ -45,7 +45,7 @@ final class Version
         return new self(
             $this->major + 1,
             0,
-            0
+            0,
         );
     }
 
@@ -54,7 +54,7 @@ final class Version
         return new self(
             $this->major,
             $this->minor + 1,
-            0
+            0,
         );
     }
 
@@ -63,11 +63,11 @@ final class Version
         return new self(
             $this->major,
             $this->minor,
-            $this->bugfix + 1
+            $this->bugfix + 1,
         );
     }
 
-    public function __toString(): string
+    public function toString(): string
     {
         return "{$this->major}.{$this->minor}.{$this->bugfix}";
     }
