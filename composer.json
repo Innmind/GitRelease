@@ -33,7 +33,8 @@
     },
     "require-dev": {
         "phpunit/phpunit": "~8.0",
-        "giorgiosironi/eris": "^0.11.0"
+        "giorgiosironi/eris": "^0.11.0",
+        "vimeo/psalm": "^3.8"
     },
     "bin": ["git-release"]
 }

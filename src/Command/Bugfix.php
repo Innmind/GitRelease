@@ -90,6 +90,7 @@ final class Bugfix implements Command
             return;
         }
 
+        /** @psalm-suppress PossiblyNullArgument false positive as if the message is invalid we return in the catch above */
         ($this->signedRelease)($repository, $newVersion, $message);
     }
 
