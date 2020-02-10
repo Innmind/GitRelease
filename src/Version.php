@@ -8,9 +8,9 @@ use Innmind\Immutable\Str;
 
 final class Version
 {
-    private $major;
-    private $minor;
-    private $bugfix;
+    private int $major;
+    private int $minor;
+    private int $bugfix;
 
     public function __construct(int $major, int $minor, int $bugfix)
     {

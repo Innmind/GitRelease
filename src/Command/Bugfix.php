@@ -25,10 +25,10 @@ use Innmind\Immutable\Str;
 
 final class Bugfix implements Command
 {
-    private $git;
-    private $signedRelease;
-    private $unsignedRelease;
-    private $latestVersion;
+    private Git $git;
+    private SignedRelease $signedRelease;
+    private UnsignedRelease $unsignedRelease;
+    private LatestVersion $latestVersion;
 
     public function __construct(
         Git $git,
