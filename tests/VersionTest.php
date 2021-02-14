@@ -8,22 +8,22 @@ use Innmind\GitRelease\{
     Exception\DomainException,
 };
 use PHPUnit\Framework\TestCase;
-use Eris\{
-    Generator,
-    TestTrait,
+use Innmind\BlackBox\{
+    PHPUnit\BlackBox,
+    Set,
 };
 
 class VersionTest extends TestCase
 {
-    use TestTrait;
+    use BlackBox;
 
     public function testInterface()
     {
         $this
             ->forAll(
-                Generator\nat(),
-                Generator\nat(),
-                Generator\nat()
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any()
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertSame(
@@ -37,9 +37,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Generator\neg(),
-                Generator\nat(),
-                Generator\nat()
+                Set\Integers::below(-1),
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any()
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->expectException(DomainException::class);
@@ -53,9 +53,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Generator\nat(),
-                Generator\neg(),
-                Generator\nat()
+                Set\NaturalNumbers::any(),
+                Set\Integers::below(-1),
+                Set\NaturalNumbers::any()
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->expectException(DomainException::class);
@@ -69,9 +69,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Generator\nat(),
-                Generator\nat(),
-                Generator\neg()
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any(),
+                Set\Integers::below(-1)
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->expectException(DomainException::class);
@@ -85,9 +85,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Generator\nat(),
-                Generator\nat(),
-                Generator\nat()
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any()
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = Version::of("$major.$minor.$bugfix");
@@ -100,7 +100,7 @@ class VersionTest extends TestCase
     public function testThrowWhenNotOfExpectedPattern()
     {
         $this
-            ->forAll(Generator\string())
+            ->forAll(Set\Strings::any())
             ->then(function(string $pattern): void {
                 $this->expectException(DomainException::class);
                 $this->expectExceptionMessage($pattern);
@@ -113,9 +113,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Generator\nat(),
-                Generator\nat(),
-                Generator\nat()
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any()
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = new Version($major, $minor, $bugfix);
@@ -131,9 +131,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Generator\nat(),
-                Generator\nat(),
-                Generator\nat()
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any()
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = new Version($major, $minor, $bugfix);
@@ -149,9 +149,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Generator\nat(),
-                Generator\nat(),
-                Generator\nat()
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any(),
+                Set\NaturalNumbers::any()
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = new Version($major, $minor, $bugfix);

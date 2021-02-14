@@ -36,61 +36,56 @@ class SignedReleaseTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(4))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(2))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process3
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process3
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(3))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push' '--tags'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process4
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process4
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
