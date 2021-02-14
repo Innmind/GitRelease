@@ -240,8 +240,8 @@ class MajorTest extends TestCase
                 [Str::of("Next release: 2.0.0\n")],
                 [Str::of('message: ')],
             );
-        $input = fopen('php://temp', 'r+');
-        fwrite($input, "\n");
+        $input = \fopen('php://temp', 'r+');
+        \fwrite($input, "\n");
         $env
             ->expects($this->once())
             ->method('input')
@@ -382,8 +382,8 @@ class MajorTest extends TestCase
                 [Str::of("Next release: 2.0.0\n")],
                 [Str::of('message: ')],
             );
-        $input = fopen('php://temp', 'r+');
-        fwrite($input, "\n");
+        $input = \fopen('php://temp', 'r+');
+        \fwrite($input, "\n");
         $env
             ->expects($this->once())
             ->method('input')
@@ -518,8 +518,8 @@ class MajorTest extends TestCase
                 [Str::of("Next release: 2.0.0\n")],
                 [Str::of('message: ')],
             );
-        $input = fopen('php://temp', 'r+');
-        fwrite($input, "watev\n");
+        $input = \fopen('php://temp', 'r+');
+        \fwrite($input, "watev\n");
         $env
             ->expects($this->once())
             ->method('input')
@@ -651,8 +651,8 @@ class MajorTest extends TestCase
                 [Str::of("Next release: 2.0.0\n")],
                 [Str::of('message: ')],
             );
-        $input = fopen('php://temp', 'r+');
-        fwrite($input, "watev\n");
+        $input = \fopen('php://temp', 'r+');
+        \fwrite($input, "watev\n");
         $env
             ->expects($this->once())
             ->method('input')
