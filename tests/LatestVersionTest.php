@@ -58,35 +58,36 @@ class LatestVersionTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));

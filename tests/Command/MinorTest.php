@@ -90,35 +90,36 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -177,35 +178,36 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -231,17 +233,13 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of("Current release: 1.0.0\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.1.0\n"));
-        $output
-            ->expects($this->at(2))
-            ->method('write')
-            ->with(Str::of('message: '));
+            ->withConsecutive(
+                [Str::of("Current release: 1.0.0\n")],
+                [Str::of("Next release: 1.1.0\n")],
+                [Str::of('message: ')],
+            );
         $input = fopen('php://temp', 'r+');
         fwrite($input, "\n");
         $env
@@ -286,35 +284,51 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(5))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '1.2.0'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -322,48 +336,24 @@ class MinorTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $processes
-            ->expects($this->at(2))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '1.2.0'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process3
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process3
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(3))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process4
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process4
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(4))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push' '--tags'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process5
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process5
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
@@ -385,17 +375,13 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of("Current release: 1.1.1\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.2.0\n"));
-        $output
-            ->expects($this->at(2))
-            ->method('write')
-            ->with(Str::of('message: '));
+            ->withConsecutive(
+                [Str::of("Current release: 1.1.1\n")],
+                [Str::of("Next release: 1.2.0\n")],
+                [Str::of('message: ')],
+            );
         $input = fopen('php://temp', 'r+');
         fwrite($input, "\n");
         $env
@@ -434,35 +420,51 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(5))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '-s' '-a' '1.2.0' '-m' 'watev'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -470,48 +472,24 @@ class MinorTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $processes
-            ->expects($this->at(2))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '-s' '-a' '1.2.0' '-m' 'watev'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process3
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process3
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(3))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process4
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process4
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(4))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push' '--tags'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process5
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process5
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
@@ -533,17 +511,13 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of("Current release: 1.1.1\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.2.0\n"));
-        $output
-            ->expects($this->at(2))
-            ->method('write')
-            ->with(Str::of('message: '));
+            ->withConsecutive(
+                [Str::of("Current release: 1.1.1\n")],
+                [Str::of("Next release: 1.2.0\n")],
+                [Str::of('message: ')],
+            );
         $input = fopen('php://temp', 'r+');
         fwrite($input, "watev\n");
         $env
@@ -579,35 +553,51 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(5))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '1.2.0' '-a' '-m' 'watev'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -615,48 +605,24 @@ class MinorTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $processes
-            ->expects($this->at(2))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '1.2.0' '-a' '-m' 'watev'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process3
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process3
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(3))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process4
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process4
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(4))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push' '--tags'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process5
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process5
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
@@ -678,17 +644,13 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of("Current release: 1.1.1\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.2.0\n"));
-        $output
-            ->expects($this->at(2))
-            ->method('write')
-            ->with(Str::of('message: '));
+            ->withConsecutive(
+                [Str::of("Current release: 1.1.1\n")],
+                [Str::of("Next release: 1.2.0\n")],
+                [Str::of('message: ')],
+            );
         $input = fopen('php://temp', 'r+');
         fwrite($input, "watev\n");
         $env
@@ -727,35 +689,51 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(5))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '-s' '-a' '1.2.0' '-m' 'watev'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -763,48 +741,24 @@ class MinorTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $processes
-            ->expects($this->at(2))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '-s' '-a' '1.2.0' '-m' 'watev'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process3
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process3
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(3))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process4
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process4
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(4))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push' '--tags'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process5
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process5
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
@@ -826,13 +780,12 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of("Current release: 1.1.1\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.2.0\n"));
+            ->withConsecutive(
+                [Str::of("Current release: 1.1.1\n")],
+                [Str::of("Next release: 1.2.0\n")],
+            );
         $env
             ->expects($this->never())
             ->method('error');
@@ -865,35 +818,36 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -919,13 +873,12 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of("Current release: 1.0.0\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.1.0\n"));
+            ->withConsecutive(
+                [Str::of("Current release: 1.0.0\n")],
+                [Str::of("Next release: 1.1.0\n")],
+            );
         $env
             ->expects($this->once())
             ->method('error')
@@ -967,35 +920,51 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(5))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '1.2.0' '-a' '-m' 'watev'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -1003,48 +972,24 @@ class MinorTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $processes
-            ->expects($this->at(2))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '1.2.0' '-a' '-m' 'watev'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process3
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process3
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(3))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process4
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process4
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(4))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push' '--tags'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process5
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process5
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
@@ -1066,13 +1011,12 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of("Current release: 1.1.1\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.2.0\n"));
+            ->withConsecutive(
+                [Str::of("Current release: 1.1.1\n")],
+                [Str::of("Next release: 1.2.0\n")],
+            );
         $env
             ->expects($this->never())
             ->method('error');
@@ -1106,35 +1050,51 @@ class MinorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->at(0))
+            ->expects($this->exactly(5))
             ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "mkdir '-p' '/somewhere'";
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+            ->withConsecutive(
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '1.2.0'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        $command->workingDirectory()->toString() === '/somewhere';
+                })],
+            )
+            ->will($this->onConsecutiveCalls(
+                $process1 = $this->createMock(Process::class),
+                $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
+            ));
+        $process1
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process1
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(1))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process2
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process2
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $process
+        $process2
             ->expects($this->once())
             ->method('output')
             ->willReturn($output = $this->createMock(Output::class));
@@ -1142,48 +1102,24 @@ class MinorTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $processes
-            ->expects($this->at(2))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'tag' '1.2.0'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process3
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process3
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(3))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process4
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process4
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
-        $processes
-            ->expects($this->at(4))
-            ->method('execute')
-            ->with($this->callback(static function($command): bool {
-                return $command->toString() === "git 'push' '--tags'" &&
-                    $command->workingDirectory()->toString() === '/somewhere';
-            }))
-            ->willReturn($process = $this->createMock(Process::class));
-        $process
+        $process5
             ->expects($this->once())
             ->method('wait');
-        $process
+        $process5
             ->expects($this->once())
             ->method('exitCode')
             ->willReturn(new ExitCode(0));
@@ -1205,13 +1141,12 @@ class MinorTest extends TestCase
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of("Current release: 1.1.1\n"));
-        $output
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of("Next release: 1.2.0\n"));
+            ->withConsecutive(
+                [Str::of("Current release: 1.1.1\n")],
+                [Str::of("Next release: 1.2.0\n")],
+            );
         $env
             ->expects($this->never())
             ->method('error');
