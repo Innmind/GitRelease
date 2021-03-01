@@ -23,7 +23,7 @@ final class LatestVersion
         }
 
         $versions = $tags->sort(static function(Tag $a, Tag $b): int {
-            return (int) $b->date()->aheadOf($a->date());
+            return $b->date()->aheadOf($a->date()) ? 1 : -1;
         });
 
         try {
