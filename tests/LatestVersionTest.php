@@ -151,7 +151,7 @@ OUTPUT;
         $repository = new Repository(
             $server,
             Path::of('/somewhere'),
-            new Clock(new UTC)
+            new Clock(new UTC),
         );
 
         return $latestVersion($repository);

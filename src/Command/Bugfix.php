@@ -37,7 +37,7 @@ final class Bugfix implements Command
         SignedRelease $release,
         UnsignedRelease $unsignedRelease,
         LatestVersion $latestVersion,
-        Sockets $sockets
+        Sockets $sockets,
     ) {
         $this->git = $git;
         $this->signedRelease = $release;

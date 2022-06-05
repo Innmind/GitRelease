@@ -93,7 +93,7 @@ class SignedReleaseTest extends TestCase
         $this->assertNull($release(
             new Repository($server, $path, new Clock(new UTC)),
             new Version(1, 0, 0),
-            new Message('watev')
+            new Message('watev'),
         ));
     }
 }

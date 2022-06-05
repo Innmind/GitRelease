@@ -37,7 +37,7 @@ final class Minor implements Command
         SignedRelease $signedRelease,
         UnsignedRelease $unsignedRelease,
         LatestVersion $latestVersion,
-        Sockets $sockets
+        Sockets $sockets,
     ) {
         $this->git = $git;
         $this->signedRelease = $signedRelease;

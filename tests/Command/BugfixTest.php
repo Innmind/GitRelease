@@ -54,7 +54,7 @@ class BugfixTest extends TestCase
                 new UnsignedRelease,
                 new LatestVersion,
                 $this->createMock(Sockets::class),
-            )
+            ),
         );
     }
 
@@ -156,7 +156,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options
+            new Options,
         ));
     }
 
@@ -262,7 +262,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options
+            new Options,
         ));
     }
 
@@ -398,7 +398,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options($options)
+            new Options($options),
         ));
     }
 
@@ -531,7 +531,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options
+            new Options,
         ));
     }
 
@@ -667,7 +667,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options($options)
+            new Options($options),
         ));
     }
 
@@ -796,7 +796,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options($options)
+            new Options($options),
         ));
     }
 
@@ -898,7 +898,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options($options)
+            new Options($options),
         ));
     }
 
@@ -1028,7 +1028,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options($options)
+            new Options($options),
         ));
     }
 
@@ -1158,7 +1158,7 @@ class BugfixTest extends TestCase
         $this->assertNull($command(
             $env,
             new Arguments,
-            new Options($options)
+            new Options($options),
         ));
     }
 }

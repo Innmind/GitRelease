@@ -14,7 +14,7 @@ final class SignedRelease
     public function __invoke(
         Repository $repository,
         Version $version,
-        Message $message
+        Message $message,
     ): void {
         $repository->tags()->sign(
             new Name($version->toString()),

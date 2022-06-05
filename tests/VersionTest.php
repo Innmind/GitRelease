@@ -23,7 +23,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\NaturalNumbers::any(),
                 Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any()
+                Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertSame(
@@ -39,7 +39,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\Integers::below(-1),
                 Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any()
+                Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->expectException(DomainException::class);
@@ -55,7 +55,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\NaturalNumbers::any(),
                 Set\Integers::below(-1),
-                Set\NaturalNumbers::any()
+                Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->expectException(DomainException::class);
@@ -71,7 +71,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\NaturalNumbers::any(),
                 Set\NaturalNumbers::any(),
-                Set\Integers::below(-1)
+                Set\Integers::below(-1),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->expectException(DomainException::class);
@@ -87,7 +87,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\NaturalNumbers::any(),
                 Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any()
+                Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = Version::of("$major.$minor.$bugfix");
@@ -115,7 +115,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\NaturalNumbers::any(),
                 Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any()
+                Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = new Version($major, $minor, $bugfix);
@@ -133,7 +133,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\NaturalNumbers::any(),
                 Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any()
+                Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = new Version($major, $minor, $bugfix);
@@ -151,7 +151,7 @@ class VersionTest extends TestCase
             ->forAll(
                 Set\NaturalNumbers::any(),
                 Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any()
+                Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = new Version($major, $minor, $bugfix);
