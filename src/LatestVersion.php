@@ -18,9 +18,10 @@ final class LatestVersion
             })
             ->first()
             ->map(static fn($version) => $version->name()->toString())
+            ->flatMap(static fn($version) => Version::of($version))
             ->match(
-                static fn($version) => Version::of($version),
-                static fn() => new Version(0, 0, 0),
+                static fn($version) => $version,
+                static fn() => Version::zero(),
             );
     }
 }

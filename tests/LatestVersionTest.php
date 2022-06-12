@@ -6,7 +6,6 @@ namespace Tests\Innmind\GitRelease;
 use Innmind\GitRelease\{
     LatestVersion,
     Version,
-    Exception\DomainException,
 };
 use Innmind\Git\Repository;
 use Innmind\Server\Control\{
@@ -97,12 +96,12 @@ OUTPUT;
         $this->assertSame('4.17.0', $version->toString());
     }
 
-    public function testThrowWhenUnknownFormat()
+    public function testReturnVersionZeroWhenUnknownFormat()
     {
-        $this->expectException(DomainException::class);
-        $this->expectExceptionMessage('v1.0.0');
+        $version = $this->fromOutput('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
 
-        $this->fromOutput('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
+        $this->assertInstanceOf(Version::class, $version);
+        $this->assertSame('0.0.0', $version->toString());
     }
 
     private function fromOutput(string $data)

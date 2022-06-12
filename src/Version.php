@@ -3,7 +3,6 @@ declare(strict_types = 1);
 
 namespace Innmind\GitRelease;
 
-use Innmind\GitRelease\Exception\DomainException;
 use Innmind\Immutable\{
     Str,
     Maybe,
@@ -15,46 +14,43 @@ final class Version
     private int $minor;
     private int $bugfix;
 
-    public function __construct(int $major, int $minor, int $bugfix)
+    private function __construct(int $major, int $minor, int $bugfix)
     {
-        if (\min($major, $minor, $bugfix) < 0) {
-            throw new DomainException("$major.$minor.$bugfix");
-        }
-
         $this->major = $major;
         $this->minor = $minor;
         $this->bugfix = $bugfix;
     }
 
-    public static function of(string $version): self
+    public static function zero(): self
     {
-        $version = Str::of($version);
+        return new self(0, 0, 0);
+    }
 
-        if (!$version->matches('~^\d+\.\d+\.\d+$~')) {
-            throw new DomainException($version->toString());
-        }
-
-        $parts = $version->split('.');
+    /**
+     * @return Maybe<self>
+     */
+    public static function of(string $version): Maybe
+    {
+        $parts = Str::of($version)->capture('~^(?<major>\d+)\.(?<minor>\d+)\.(?<bugfix>\d+)$~');
         $major = $parts
-            ->get(0)
-            ->map(static fn($major) => (int) $major->toString());
+            ->get('major')
+            ->map(static fn($major) => (int) $major->toString())
+            ->filter(static fn($major) => $major >= 0);
         $minor = $parts
-            ->get(1)
-            ->map(static fn($minor) => (int) $minor->toString());
+            ->get('minor')
+            ->map(static fn($minor) => (int) $minor->toString())
+            ->filter(static fn($minor) => $minor >= 0);
         $bugfix = $parts
-            ->get(2)
-            ->map(static fn($bugfix) => (int) $bugfix->toString());
+            ->get('bugfix')
+            ->map(static fn($bugfix) => (int) $bugfix->toString())
+            ->filter(static fn($bugfix) => $bugfix >= 0);
 
         return Maybe::all($major, $minor, $bugfix)
             ->map(static fn(int $major, int $minor, int $bugfix) => new self(
                 $major,
                 $minor,
                 $bugfix,
-            ))
-            ->match(
-                static fn($self) => $self,
-                static fn() => throw new DomainException($version->toString()),
-            );
+            ));
     }
 
     public function increaseMajor(): self

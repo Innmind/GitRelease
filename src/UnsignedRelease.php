@@ -8,28 +8,24 @@ use Innmind\Git\{
     Message,
     Repository\Tag\Name,
 };
+use Innmind\Immutable\{
+    Maybe,
+    SideEffect,
+};
 
 final class UnsignedRelease
 {
+    /**
+     * @return Maybe<SideEffect>
+     */
     public function __invoke(
         Repository $repository,
         Version $version,
         Message $message = null,
-    ): void {
-        $_ = $repository
-            ->tags()
-            ->add(
-                Name::maybe($version->toString())->match(
-                    static fn($name) => $name,
-                    static fn() => throw new \RuntimeException,
-                ),
-                $message,
-            )
+    ): Maybe {
+        return Name::maybe($version->toString())
+            ->flatMap(static fn($name) => $repository->tags()->add($name, $message))
             ->flatMap(static fn() => $repository->push())
-            ->flatMap(static fn() => $repository->tags()->push())
-            ->match(
-                static fn() => null, // pass
-                static fn() => throw new \RuntimeException,
-            );
+            ->flatMap(static fn() => $repository->tags()->push());
     }
 }

@@ -64,7 +64,7 @@ class MajorTest extends TestCase
         );
     }
 
-    public function testExitWhenUnknownVersionFormat()
+    public function testCreateVersionZeroWhenUnknownVersionFormat()
     {
         $command = new Major(
             Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
@@ -77,7 +77,7 @@ class MajorTest extends TestCase
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->exactly(2))
+            ->expects($this->exactly(5))
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
@@ -90,10 +90,34 @@ class MajorTest extends TestCase
                             static fn() => null,
                         );
                 })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '1.0.0'" &&
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
+                })],
             )
             ->will($this->onConsecutiveCalls(
                 $process1 = $this->createMock(Process::class),
                 $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
             ));
         $process1
             ->expects($this->once())
@@ -111,23 +135,47 @@ class MajorTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
+        $process3
+            ->expects($this->once())
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
+        $process4
+            ->expects($this->once())
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
+        $process5
+            ->expects($this->once())
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
-            [],
+            ["\n"],
             true,
             [],
             [],
             '/somewhere',
         );
-        $console = Console::of($env, new Arguments, new Options);
+        $console = Console::of(
+            $env,
+            new Arguments,
+            new Options(Map::of(['no-sign', ''])),
+        );
 
         $env = $command($console)->environment();
 
-        $this->assertSame(1, $env->exitCode()->match(
+        $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
             static fn() => null,
         ));
-        $this->assertSame(["Unsupported tag name format\n"], $env->errors());
+        $this->assertSame(
+            [
+                "Current release: 0.0.0\n",
+                "Next release: 1.0.0\n",
+                'message: ',
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 
     public function testExitWhenEmptyMessageWithSignedRelease()

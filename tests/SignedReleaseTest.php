@@ -90,13 +90,22 @@ class SignedReleaseTest extends TestCase
             ->method('wait')
             ->willReturn(Either::right(new SideEffect));
 
-        $this->assertNull($release(
-            Repository::of($server, $path, new Clock(new UTC))->match(
-                static fn($repo) => $repo,
+        $this->assertInstanceOf(
+            SideEffect::class,
+            $release(
+                Repository::of($server, $path, new Clock(new UTC))->match(
+                    static fn($repo) => $repo,
+                    static fn() => null,
+                ),
+                Version::of('1.0.0')->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                ),
+                Message::of('watev'),
+            )->match(
+                static fn($sideEffect) => $sideEffect,
                 static fn() => null,
             ),
-            new Version(1, 0, 0),
-            Message::of('watev'),
-        ));
+        );
     }
 }

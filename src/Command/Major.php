@@ -8,7 +8,6 @@ use Innmind\GitRelease\{
     LatestVersion,
     UnsignedRelease,
     Version,
-    Exception\DomainException,
 };
 use Innmind\Git\{
     Git,
@@ -48,14 +47,8 @@ final class Major implements Command
             static fn() => throw new \RuntimeException,
         );
 
-        try {
-            $version = ($this->latestVersion)($repository);
-            $newVersion = $version->increaseMajor();
-        } catch (DomainException $e) {
-            return $console
-                ->error(Str::of("Unsupported tag name format\n"))
-                ->exit(1);
-        }
+        $version = ($this->latestVersion)($repository);
+        $newVersion = $version->increaseMajor();
 
         $console = $console
             ->output(Str::of("Current release: {$version->toString()}\n"))
@@ -103,9 +96,12 @@ final class Major implements Command
             static fn() => null,
         );
 
-        ($this->unsignedRelease)($repository, $newVersion, $message);
-
-        return $console;
+        return ($this->unsignedRelease)($repository, $newVersion, $message)->match(
+            static fn() => $console,
+            static fn() => $console
+                ->error(Str::of("Release failed\n"))
+                ->exit(1),
+        );
     }
 
     private function signedRelease(
@@ -115,11 +111,12 @@ final class Major implements Command
         Version $newVersion,
     ): Console {
         return Message::maybe($message)->match(
-            function($message) use ($console, $repository, $newVersion) {
-                ($this->signedRelease)($repository, $newVersion, $message);
-
-                return $console;
-            },
+            fn($message) => ($this->signedRelease)($repository, $newVersion, $message)->match(
+                static fn() => $console,
+                static fn() => $console
+                    ->error(Str::of("Release failed\n"))
+                    ->exit(1),
+            ),
             static fn() => $console
                 ->error(Str::of("Invalid message\n"))
                 ->exit(1),

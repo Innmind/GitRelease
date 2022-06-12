@@ -3,10 +3,7 @@ declare(strict_types = 1);
 
 namespace Tests\Innmind\GitRelease;
 
-use Innmind\GitRelease\{
-    Version,
-    Exception\DomainException,
-};
+use Innmind\GitRelease\Version;
 use PHPUnit\Framework\TestCase;
 use Innmind\BlackBox\{
     PHPUnit\BlackBox,
@@ -28,12 +25,15 @@ class VersionTest extends TestCase
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertSame(
                     "$major.$minor.$bugfix",
-                    (new Version($major, $minor, $bugfix))->toString(),
+                    Version::of("$major.$minor.$bugfix")->match(
+                        static fn($version) => $version->toString(),
+                        static fn() => null,
+                    ),
                 );
             });
     }
 
-    public function testThrowWhenNegativeMajor()
+    public function testReturnNothingWhenNegativeMajor()
     {
         $this
             ->forAll(
@@ -42,14 +42,14 @@ class VersionTest extends TestCase
                 Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
-                $this->expectException(DomainException::class);
-                $this->expectExceptionMessage("$major.$minor.$bugfix");
-
-                new Version($major, $minor, $bugfix);
+                $this->assertNull(Version::of("$major.$minor.$bugfix")->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                ));
             });
     }
 
-    public function testThrowWhenNegativeMinor()
+    public function testReturnNothingWhenNegativeMinor()
     {
         $this
             ->forAll(
@@ -58,14 +58,14 @@ class VersionTest extends TestCase
                 Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
-                $this->expectException(DomainException::class);
-                $this->expectExceptionMessage("$major.$minor.$bugfix");
-
-                new Version($major, $minor, $bugfix);
+                $this->assertNull(Version::of("$major.$minor.$bugfix")->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                ));
             });
     }
 
-    public function testThrowWhenNegativeBugfix()
+    public function testReturnNothingWhenNegativeBugfix()
     {
         $this
             ->forAll(
@@ -74,38 +74,22 @@ class VersionTest extends TestCase
                 Set\Integers::below(-1),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
-                $this->expectException(DomainException::class);
-                $this->expectExceptionMessage("$major.$minor.$bugfix");
-
-                new Version($major, $minor, $bugfix);
+                $this->assertNull(Version::of("$major.$minor.$bugfix")->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                ));
             });
     }
 
-    public function testOf()
-    {
-        $this
-            ->forAll(
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
-            )
-            ->then(function(int $major, int $minor, int $bugfix): void {
-                $version = Version::of("$major.$minor.$bugfix");
-
-                $this->assertInstanceOf(Version::class, $version);
-                $this->assertSame("$major.$minor.$bugfix", $version->toString());
-            });
-    }
-
-    public function testThrowWhenNotOfExpectedPattern()
+    public function testReturnNothingWhenNotOfExpectedPattern()
     {
         $this
             ->forAll(Set\Strings::any())
             ->then(function(string $pattern): void {
-                $this->expectException(DomainException::class);
-                $this->expectExceptionMessage($pattern);
-
-                Version::of($pattern);
+                $this->assertNull(Version::of($pattern)->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                ));
             });
     }
 
@@ -118,7 +102,10 @@ class VersionTest extends TestCase
                 Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
-                $version = new Version($major, $minor, $bugfix);
+                $version = Version::of("$major.$minor.$bugfix")->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                );
                 $next = $version->increaseMajor();
 
                 $this->assertInstanceOf(Version::class, $next);
@@ -136,7 +123,10 @@ class VersionTest extends TestCase
                 Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
-                $version = new Version($major, $minor, $bugfix);
+                $version = Version::of("$major.$minor.$bugfix")->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                );
                 $next = $version->increaseMinor();
 
                 $this->assertInstanceOf(Version::class, $next);
@@ -154,7 +144,10 @@ class VersionTest extends TestCase
                 Set\NaturalNumbers::any(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
-                $version = new Version($major, $minor, $bugfix);
+                $version = Version::of("$major.$minor.$bugfix")->match(
+                    static fn($version) => $version,
+                    static fn() => null,
+                );
                 $next = $version->increaseBugfix();
 
                 $this->assertInstanceOf(Version::class, $next);
