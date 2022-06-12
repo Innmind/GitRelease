@@ -8,6 +8,7 @@ use Innmind\GitRelease\{
     SignedRelease,
     LatestVersion,
     UnsignedRelease,
+    Release,
 };
 use Innmind\Git\Git;
 use Innmind\Immutable\Map;
@@ -43,10 +44,12 @@ class BugfixTest extends TestCase
         $this->assertInstanceOf(
             Command::class,
             new Bugfix(
-                Git::of($this->createMock(Server::class), new Clock(new UTC)),
-                new SignedRelease,
-                new UnsignedRelease,
-                new LatestVersion,
+                new Release(
+                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    new SignedRelease,
+                    new UnsignedRelease,
+                    new LatestVersion,
+                ),
             ),
         );
     }
@@ -56,10 +59,12 @@ class BugfixTest extends TestCase
         $this->assertSame(
             "bugfix --no-sign --message=\n\nCreate a new bugfix tag and push it",
             (new Bugfix(
-                Git::of($this->createMock(Server::class), new Clock(new UTC)),
-                new SignedRelease,
-                new UnsignedRelease,
-                new LatestVersion,
+                new Release(
+                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    new SignedRelease,
+                    new UnsignedRelease,
+                    new LatestVersion,
+                ),
             ))->usage(),
         );
     }
@@ -67,10 +72,12 @@ class BugfixTest extends TestCase
     public function testCreateVersionZeroWhenUnknownVersionFormat()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -181,10 +188,12 @@ class BugfixTest extends TestCase
     public function testExitWhenEmptyMessageWithSignedRelease()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -255,10 +264,12 @@ class BugfixTest extends TestCase
     public function testExitWhenEmptyMessageWithUnsignedRelease()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -369,10 +380,12 @@ class BugfixTest extends TestCase
     public function testSignedRelease()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -479,10 +492,12 @@ class BugfixTest extends TestCase
     public function testUnsignedRelease()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -593,10 +608,12 @@ class BugfixTest extends TestCase
     public function testSignedReleaseWithMessageOption()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -706,10 +723,12 @@ class BugfixTest extends TestCase
     public function testExitWhenSignedReleaseWithEmptyMessageOption()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -783,10 +802,12 @@ class BugfixTest extends TestCase
     public function testUnsignedReleaseWithMessageOption()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -896,10 +917,12 @@ class BugfixTest extends TestCase
     public function testUnsignedReleaseWithEmptyMessageOption()
     {
         $command = new Bugfix(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())

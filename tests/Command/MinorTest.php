@@ -8,6 +8,7 @@ use Innmind\GitRelease\{
     SignedRelease,
     LatestVersion,
     UnsignedRelease,
+    Release,
 };
 use Innmind\Git\Git;
 use Innmind\Immutable\Map;
@@ -43,10 +44,12 @@ class MinorTest extends TestCase
         $this->assertInstanceOf(
             Command::class,
             new Minor(
-                Git::of($this->createMock(Server::class), new Clock(new UTC)),
-                new SignedRelease,
-                new UnsignedRelease,
-                new LatestVersion,
+                new Release(
+                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    new SignedRelease,
+                    new UnsignedRelease,
+                    new LatestVersion,
+                ),
             ),
         );
     }
@@ -56,10 +59,12 @@ class MinorTest extends TestCase
         $this->assertSame(
             "minor --no-sign --message=\n\nCreate a new minor tag and push it",
             (new Minor(
-                Git::of($this->createMock(Server::class), new Clock(new UTC)),
-                new SignedRelease,
-                new UnsignedRelease,
-                new LatestVersion,
+                new Release(
+                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    new SignedRelease,
+                    new UnsignedRelease,
+                    new LatestVersion,
+                ),
             ))->usage(),
         );
     }
@@ -67,10 +72,12 @@ class MinorTest extends TestCase
     public function testCreateVersionZeroWhenUnknownVersionFormat()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -181,10 +188,12 @@ class MinorTest extends TestCase
     public function testExitWhenEmptyMessageWithSignedRelease()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -254,10 +263,12 @@ class MinorTest extends TestCase
     public function testExitWhenEmptyMessageWithUnsignedRelease()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -364,10 +375,12 @@ class MinorTest extends TestCase
     public function testSignedRelease()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -474,10 +487,12 @@ class MinorTest extends TestCase
     public function testUnsignedRelease()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -584,10 +599,12 @@ class MinorTest extends TestCase
     public function testSignedReleaseWithMessageOption()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -693,10 +710,12 @@ class MinorTest extends TestCase
     public function testExitWhenSignedReleaseWithEmptyMessageOption()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -766,10 +785,12 @@ class MinorTest extends TestCase
     public function testUnsignedReleaseWithMessageOption()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
@@ -879,10 +900,12 @@ class MinorTest extends TestCase
     public function testUnsignedReleaseWithEmptyMessageOption()
     {
         $command = new Minor(
-            Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
         $server
             ->expects($this->any())
