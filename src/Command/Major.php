@@ -6,22 +6,20 @@ namespace Innmind\GitRelease\Command;
 use Innmind\GitRelease\{
     SignedRelease,
     LatestVersion,
-    Exception\UnknownVersionFormat,
     UnsignedRelease,
+    Version,
+    Exception\DomainException,
 };
 use Innmind\Git\{
     Git,
     Message,
-    Exception\DomainException,
+    Repository,
 };
 use Innmind\CLI\{
     Command,
-    Command\Arguments,
-    Command\Options,
-    Environment,
     Question\Question,
+    Console,
 };
-use Innmind\OperatingSystem\Sockets;
 use Innmind\Immutable\Str;
 
 final class Major implements Command
@@ -30,76 +28,101 @@ final class Major implements Command
     private SignedRelease $signedRelease;
     private UnsignedRelease $unsignedRelease;
     private LatestVersion $latestVersion;
-    private Sockets $sockets;
 
     public function __construct(
         Git $git,
         SignedRelease $signedRelease,
         UnsignedRelease $unsignedRelease,
         LatestVersion $latestVersion,
-        Sockets $sockets,
     ) {
         $this->git = $git;
         $this->signedRelease = $signedRelease;
         $this->unsignedRelease = $unsignedRelease;
         $this->latestVersion = $latestVersion;
-        $this->sockets = $sockets;
     }
 
-    public function __invoke(Environment $env, Arguments $arguments, Options $options): void
+    public function __invoke(Console $console): Console
     {
-        $repository = $this->git->repository($env->workingDirectory());
+        $repository = $this->git->repository($console->workingDirectory())->match(
+            static fn($repository) => $repository,
+            static fn() => throw new \RuntimeException,
+        );
 
         try {
             $version = ($this->latestVersion)($repository);
             $newVersion = $version->increaseMajor();
-        } catch (UnknownVersionFormat $e) {
-            $env->error()->write(Str::of("Unsupported tag name format\n"));
-            $env->exit(1);
-
-            return;
-        }
-
-        $env->output()->write(Str::of("Current release: {$version->toString()}\n"));
-        $env->output()->write(Str::of("Next release: {$newVersion->toString()}\n"));
-
-        if ($options->contains('message')) {
-            $message = $options->get('message');
-        } else {
-            $message = (new Question('message:'))($env, $this->sockets)->toString();
-        }
-
-        $isSignedRelease = !$options->contains('no-sign');
-
-        try {
-            $message = new Message($message);
         } catch (DomainException $e) {
-            if ($isSignedRelease) {
-                $env->error()->write(Str::of("Invalid message\n"));
-                $env->exit(1);
-
-                return;
-            }
-
-            $message = null;
+            return $console
+                ->error(Str::of("Unsupported tag name format\n"))
+                ->exit(1);
         }
 
-        if (!$isSignedRelease) {
-            ($this->unsignedRelease)($repository, $newVersion, $message);
+        $console = $console
+            ->output(Str::of("Current release: {$version->toString()}\n"))
+            ->output(Str::of("Next release: {$newVersion->toString()}\n"));
 
-            return;
+        if ($console->options()->contains('message')) {
+            $message = $console->options()->get('message');
+        } else {
+            [$message, $console] = (new Question('message:'))($console);
+            $message = $message->match(
+                static fn($message) => $message->toString(),
+                static fn() => throw new \RuntimeException,
+            );
         }
 
-        /** @psalm-suppress PossiblyNullArgument false positive as if the message is invalid we return in the catch above */
-        ($this->signedRelease)($repository, $newVersion, $message);
+        return $console
+            ->options()
+            ->maybe('no-sign')
+            ->match(
+                fn() => $this->unsignedRelease($console, $message, $repository, $newVersion),
+                fn() => $this->signedRelease($console, $message, $repository, $newVersion),
+            );
     }
 
-    public function toString(): string
+    /**
+     * @psalm-pure
+     */
+    public function usage(): string
     {
         return <<<USAGE
-major --no-sign --message=
+            major --no-sign --message=
 
-Create a new major tag and push it
-USAGE;
+            Create a new major tag and push it
+            USAGE;
+    }
+
+    private function unsignedRelease(
+        Console $console,
+        string $message,
+        Repository $repository,
+        Version $newVersion,
+    ): Console {
+        $message = Message::maybe($message)->match(
+            static fn($message) => $message,
+            static fn() => null,
+        );
+
+        ($this->unsignedRelease)($repository, $newVersion, $message);
+
+        return $console;
+    }
+
+    private function signedRelease(
+        Console $console,
+        string $message,
+        Repository $repository,
+        Version $newVersion,
+    ): Console {
+        return Message::maybe($message)->match(
+            function($message) use ($console, $repository, $newVersion) {
+                ($this->signedRelease)($repository, $newVersion, $message);
+
+                return $console;
+            },
+            static fn() => $console
+                ->error(Str::of("Invalid message\n"))
+                ->exit(1),
+        );
     }
 }

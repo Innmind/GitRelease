@@ -15,12 +15,15 @@ use Innmind\Server\Control\{
     Server,
     Server\Processes,
     Server\Process,
-    Server\Process\ExitCode,
 };
 use Innmind\Url\Path;
 use Innmind\TimeContinuum\Earth\{
     Clock,
     Timezone\UTC,
+};
+use Innmind\Immutable\{
+    Either,
+    SideEffect,
 };
 use PHPUnit\Framework\TestCase;
 
@@ -44,15 +47,24 @@ class SignedReleaseTest extends TestCase
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push' '--tags'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -63,37 +75,28 @@ class SignedReleaseTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process3
             ->expects($this->once())
-            ->method('wait');
-        $process3
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process4
             ->expects($this->once())
-            ->method('wait');
-        $process4
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
         $this->assertNull($release(
-            new Repository($server, $path, new Clock(new UTC)),
+            Repository::of($server, $path, new Clock(new UTC))->match(
+                static fn($repo) => $repo,
+                static fn() => null,
+            ),
             new Version(1, 0, 0),
-            new Message('watev'),
+            Message::of('watev'),
         ));
     }
 }

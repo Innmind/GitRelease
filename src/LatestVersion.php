@@ -3,35 +3,24 @@ declare(strict_types = 1);
 
 namespace Innmind\GitRelease;
 
-use Innmind\GitRelease\Exception\{
-    DomainException,
-    UnknownVersionFormat,
-};
-use Innmind\Git\{
-    Repository,
-    Repository\Tag,
-};
+use Innmind\Git\Repository;
 
 final class LatestVersion
 {
     public function __invoke(Repository $repository): Version
     {
-        $tags = $repository->tags()->all();
-
-        if ($tags->empty()) {
-            return new Version(0, 0, 0);
-        }
-
-        $versions = $tags->sort(static function(Tag $a, Tag $b): int {
-            return $b->date()->aheadOf($a->date()) ? 1 : -1;
-        });
-
-        try {
-            return Version::of(
-                $versions->first()->name()->toString(),
+        return $repository
+            ->tags()
+            ->all()
+            ->sort(static fn($a, $b) => match ($b->date()->aheadOf($a->date())) {
+                true => 1,
+                false => -1,
+            })
+            ->first()
+            ->map(static fn($version) => $version->name()->toString())
+            ->match(
+                static fn($version) => Version::of($version),
+                static fn() => new Version(0, 0, 0),
             );
-        } catch (DomainException $e) {
-            throw new UnknownVersionFormat($e->getMessage());
-        }
     }
 }

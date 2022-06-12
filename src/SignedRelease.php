@@ -16,11 +16,20 @@ final class SignedRelease
         Version $version,
         Message $message,
     ): void {
-        $repository->tags()->sign(
-            new Name($version->toString()),
-            $message,
-        );
-        $repository->push();
-        $repository->tags()->push();
+        $_ = $repository
+            ->tags()
+            ->sign(
+                Name::maybe($version->toString())->match(
+                    static fn($name) => $name,
+                    static fn() => throw new \RuntimeException,
+                ),
+                $message,
+            )
+            ->flatMap(static fn() => $repository->push())
+            ->flatMap(static fn() => $repository->tags()->push())
+            ->match(
+                static fn() => null, // pass
+                static fn() => throw new \RuntimeException,
+            );
     }
 }

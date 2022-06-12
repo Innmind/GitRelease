@@ -16,9 +16,9 @@
     },
     "require": {
         "php": "~8.1",
-        "innmind/immutable": "~3.3",
-        "innmind/git": "~2.0",
-        "innmind/cli": "~2.0"
+        "innmind/immutable": "~4.2",
+        "innmind/git": "^3.0.1",
+        "innmind/cli": "dev-next"
     },
     "autoload": {
         "psr-4": {

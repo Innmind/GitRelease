@@ -16,11 +16,20 @@ final class UnsignedRelease
         Version $version,
         Message $message = null,
     ): void {
-        $repository->tags()->add(
-            new Name($version->toString()),
-            $message,
-        );
-        $repository->push();
-        $repository->tags()->push();
+        $_ = $repository
+            ->tags()
+            ->add(
+                Name::maybe($version->toString())->match(
+                    static fn($name) => $name,
+                    static fn() => throw new \RuntimeException,
+                ),
+                $message,
+            )
+            ->flatMap(static fn() => $repository->push())
+            ->flatMap(static fn() => $repository->tags()->push())
+            ->match(
+                static fn() => null, // pass
+                static fn() => throw new \RuntimeException,
+            );
     }
 }
