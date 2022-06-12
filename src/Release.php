@@ -40,11 +40,22 @@ final class Release
         Console $console,
         callable $increase,
     ): Console {
-        $repository = $this->git->repository($console->workingDirectory())->match(
-            static fn($repository) => $repository,
-            static fn() => throw new \RuntimeException,
+        return $this->git->repository($console->workingDirectory())->match(
+            fn($repository) => $this->release($console, $increase, $repository),
+            static fn() => $console
+                ->error(Str::of("Not inside a repository\n"))
+                ->exit(1),
         );
+    }
 
+    /**
+     * @param callable(Version): Version $increase
+     */
+    private function release(
+        Console $console,
+        callable $increase,
+        Repository $repository,
+    ): Console {
         $version = ($this->latestVersion)($repository);
         $newVersion = $increase($version);
 
