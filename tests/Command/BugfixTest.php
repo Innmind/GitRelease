@@ -8,6 +8,7 @@ use Innmind\GitRelease\{
     SignedRelease,
     LatestVersion,
     UnsignedRelease,
+    Release,
 };
 use Innmind\Git\Git;
 use Innmind\Immutable\Map;
@@ -15,7 +16,6 @@ use Innmind\Server\Control\{
     Server,
     Server\Processes,
     Server\Process,
-    Server\Process\ExitCode,
     Server\Process\Output,
 };
 use Innmind\CLI\{
@@ -23,22 +23,17 @@ use Innmind\CLI\{
     Command\Arguments,
     Command\Options,
     Environment,
-};
-use Innmind\OperatingSystem\Sockets;
-use Innmind\Url\Path;
-use Innmind\Stream\{
-    Writable,
-    Readable,
-    Watch\Select,
+    Console,
 };
 use Innmind\TimeContinuum\Earth\{
     Clock,
     Timezone\UTC,
-    ElapsedPeriod,
 };
 use Innmind\Immutable\{
     Str,
     Sequence,
+    Either,
+    SideEffect,
 };
 use PHPUnit\Framework\TestCase;
 
@@ -49,12 +44,13 @@ class BugfixTest extends TestCase
         $this->assertInstanceOf(
             Command::class,
             new Bugfix(
-                new Git($this->createMock(Server::class), new Clock(new UTC)),
-                new SignedRelease,
-                new UnsignedRelease,
-                new LatestVersion,
-                $this->createMock(Sockets::class),
-            )
+                new Release(
+                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    new SignedRelease,
+                    new UnsignedRelease,
+                    new LatestVersion,
+                ),
+            ),
         );
     }
 
@@ -63,62 +59,81 @@ class BugfixTest extends TestCase
         $this->assertSame(
             "bugfix --no-sign --message=\n\nCreate a new bugfix tag and push it",
             (new Bugfix(
-                new Git($this->createMock(Server::class), new Clock(new UTC)),
-                new SignedRelease,
-                new UnsignedRelease,
-                new LatestVersion,
-                $this->createMock(Sockets::class),
-            ))->toString(),
+                new Release(
+                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    new SignedRelease,
+                    new UnsignedRelease,
+                    new LatestVersion,
+                ),
+            ))->usage(),
         );
     }
 
-    public function testExitWhenUnknownVersionFormat()
+    public function testCreateVersionZeroWhenUnknownVersionFormat()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
         $processes
-            ->expects($this->exactly(2))
+            ->expects($this->exactly(5))
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'tag' '0.0.1'" &&
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push'" &&
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
+                })],
+                [$this->callback(static function($command): bool {
+                    return $command->toString() === "git 'push' '--tags'" &&
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
                 $process1 = $this->createMock(Process::class),
                 $process2 = $this->createMock(Process::class),
+                $process3 = $this->createMock(Process::class),
+                $process4 = $this->createMock(Process::class),
+                $process5 = $this->createMock(Process::class),
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -127,52 +142,59 @@ class BugfixTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
+        $process3
             ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
+        $process4
             ->expects($this->once())
-            ->method('error')
-            ->willReturn($error = $this->createMock(Writable::class));
-        $error
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
+        $process5
             ->expects($this->once())
-            ->method('write')
-            ->with(Str::of("Unsupported tag name format\n"));
-        $env
-            ->expects($this->once())
-            ->method('exit')
-            ->with(1);
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
-        $this->assertNull($command(
+        $env = Environment\InMemory::of(
+            ["\n"],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of(
             $env,
             new Arguments,
-            new Options
+            new Options(Map::of(['no-sign', ''])),
+        );
+
+        $env = $command($console)->environment();
+
+        $this->assertNull($env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 0.0.0\n",
+                "Next release: 0.0.1\n",
+                'message: ',
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 
     public function testExitWhenEmptyMessageWithSignedRelease()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -182,11 +204,14 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -195,18 +220,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -215,70 +234,43 @@ class BugfixTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.0.0\n")],
-                [Str::of("Next release: 1.0.1\n")],
-                [Str::of('message: ')],
-            );
-        $input = \fopen('php://temp', 'r+');
-        \fwrite($input, "\n");
-        $env
-            ->expects($this->once())
-            ->method('input')
-            ->willReturn(new Readable\Stream($input));
-        $env
-            ->expects($this->once())
-            ->method('error')
-            ->willReturn($error = $this->createMock(Writable::class));
-        $error
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of("Invalid message\n"));
-        $env
-            ->expects($this->once())
-            ->method('exit')
-            ->with(1);
 
-        $this->assertNull($command(
-            $env,
-            new Arguments,
-            new Options
+        $env = Environment\InMemory::of(
+            ["\n"],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of($env, new Arguments, new Options);
+
+        $env = $command($console)->environment();
+
+        $this->assertSame(1, $env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.0.0\n",
+                "Next release: 1.0.1\n",
+                'message: ',
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame(["Invalid message\n"], $env->errors());
     }
 
     public function testExitWhenEmptyMessageWithUnsignedRelease()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -288,23 +280,35 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '1.1.2'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push' '--tags'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -316,18 +320,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -338,83 +336,57 @@ class BugfixTest extends TestCase
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $process3
             ->expects($this->once())
-            ->method('wait');
-        $process3
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process4
             ->expects($this->once())
-            ->method('wait');
-        $process4
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process5
             ->expects($this->once())
-            ->method('wait');
-        $process5
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.1.1\n")],
-                [Str::of("Next release: 1.1.2\n")],
-                [Str::of('message: ')],
-            );
-        $input = \fopen('php://temp', 'r+');
-        \fwrite($input, "\n");
-        $env
-            ->expects($this->once())
-            ->method('input')
-            ->willReturn(new Readable\Stream($input));
-        $env
-            ->expects($this->never())
-            ->method('error');
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
-        $options = Map::of('string', 'string');
-        $options = $options->put('no-sign', '');
-
-        $this->assertNull($command(
+        $env = Environment\InMemory::of(
+            ["\n"],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of(
             $env,
             new Arguments,
-            new Options($options)
+            new Options(Map::of(['no-sign', ''])),
+        );
+
+        $env = $command($console)->environment();
+
+        $this->assertNull($env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.1.1\n",
+                "Next release: 1.1.2\n",
+                'message: ',
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 
     public function testSignedRelease()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -424,23 +396,35 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '-s' '-a' '1.1.2' '-m' 'watev'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push' '--tags'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -452,18 +436,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -474,80 +452,53 @@ class BugfixTest extends TestCase
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $process3
             ->expects($this->once())
-            ->method('wait');
-        $process3
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process4
             ->expects($this->once())
-            ->method('wait');
-        $process4
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process5
             ->expects($this->once())
-            ->method('wait');
-        $process5
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.1.1\n")],
-                [Str::of("Next release: 1.1.2\n")],
-                [Str::of('message: ')],
-            );
-        $input = \fopen('php://temp', 'r+');
-        \fwrite($input, "watev\n");
-        $env
-            ->expects($this->once())
-            ->method('input')
-            ->willReturn(new Readable\Stream($input));
-        $env
-            ->expects($this->never())
-            ->method('error');
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
-        $this->assertNull($command(
-            $env,
-            new Arguments,
-            new Options
+        $env = Environment\InMemory::of(
+            ["watev\n"],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of($env, new Arguments, new Options);
+
+        $env = $command($console)->environment();
+
+        $this->assertNull($env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.1.1\n",
+                "Next release: 1.1.2\n",
+                'message: ',
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 
     public function testUnsignedRelease()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -557,23 +508,35 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '1.1.2' '-a' '-m' 'watev'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push' '--tags'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -585,18 +548,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -607,83 +564,57 @@ class BugfixTest extends TestCase
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $process3
             ->expects($this->once())
-            ->method('wait');
-        $process3
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process4
             ->expects($this->once())
-            ->method('wait');
-        $process4
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process5
             ->expects($this->once())
-            ->method('wait');
-        $process5
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.1.1\n")],
-                [Str::of("Next release: 1.1.2\n")],
-                [Str::of('message: ')],
-            );
-        $input = \fopen('php://temp', 'r+');
-        \fwrite($input, "watev\n");
-        $env
-            ->expects($this->once())
-            ->method('input')
-            ->willReturn(new Readable\Stream($input));
-        $env
-            ->expects($this->never())
-            ->method('error');
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
-        $options = Map::of('string', 'string');
-        $options = $options->put('no-sign', '');
-
-        $this->assertNull($command(
+        $env = Environment\InMemory::of(
+            ["watev\n"],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of(
             $env,
             new Arguments,
-            new Options($options)
+            new Options(Map::of(['no-sign', ''])),
+        );
+
+        $env = $command($console)->environment();
+
+        $this->assertNull($env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.1.1\n",
+                "Next release: 1.1.2\n",
+                'message: ',
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 
     public function testSignedReleaseWithMessageOption()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -693,23 +624,35 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '-s' '-a' '1.1.2' '-m' 'watev'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push' '--tags'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -721,18 +664,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -743,76 +680,56 @@ class BugfixTest extends TestCase
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $process3
             ->expects($this->once())
-            ->method('wait');
-        $process3
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process4
             ->expects($this->once())
-            ->method('wait');
-        $process4
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process5
             ->expects($this->once())
-            ->method('wait');
-        $process5
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.1.1\n")],
-                [Str::of("Next release: 1.1.2\n")],
-            );
-        $env
-            ->expects($this->never())
-            ->method('error');
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
-        $options = Map::of('string', 'string');
-        $options = $options->put('message', 'watev');
-
-        $this->assertNull($command(
+        $env = Environment\InMemory::of(
+            [],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of(
             $env,
             new Arguments,
-            new Options($options)
+            new Options(Map::of(['message', 'watev'])),
+        );
+
+        $env = $command($console)->environment();
+
+        $this->assertNull($env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.1.1\n",
+                "Next release: 1.1.2\n",
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 
     public function testExitWhenSignedReleaseWithEmptyMessageOption()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -822,11 +739,14 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -835,18 +755,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -855,66 +769,46 @@ class BugfixTest extends TestCase
             ->expects($this->once())
             ->method('toString')
             ->willReturn('1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.0.0\n")],
-                [Str::of("Next release: 1.0.1\n")],
-            );
-        $env
-            ->expects($this->once())
-            ->method('error')
-            ->willReturn($error = $this->createMock(Writable::class));
-        $error
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of("Invalid message\n"));
-        $env
-            ->expects($this->once())
-            ->method('exit')
-            ->with(1);
 
-        $options = Map::of('string', 'string');
-        $options = $options->put('message', '');
-
-        $this->assertNull($command(
+        $env = Environment\InMemory::of(
+            [],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of(
             $env,
             new Arguments,
-            new Options($options)
+            new Options(Map::of(['message', ''])),
+        );
+
+        $env = $command($console)->environment();
+
+        $this->assertSame(1, $env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.0.0\n",
+                "Next release: 1.0.1\n",
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame(["Invalid message\n"], $env->errors());
     }
 
     public function testUnsignedReleaseWithMessageOption()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -924,23 +818,35 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '1.1.2' '-a' '-m' 'watev'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push' '--tags'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -952,18 +858,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -974,77 +874,56 @@ class BugfixTest extends TestCase
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $process3
             ->expects($this->once())
-            ->method('wait');
-        $process3
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process4
             ->expects($this->once())
-            ->method('wait');
-        $process4
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process5
             ->expects($this->once())
-            ->method('wait');
-        $process5
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.1.1\n")],
-                [Str::of("Next release: 1.1.2\n")],
-            );
-        $env
-            ->expects($this->never())
-            ->method('error');
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
-        $options = Map::of('string', 'string');
-        $options = $options->put('no-sign', '');
-        $options = $options->put('message', 'watev');
-
-        $this->assertNull($command(
+        $env = Environment\InMemory::of(
+            [],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of(
             $env,
             new Arguments,
-            new Options($options)
+            new Options(Map::of(['no-sign', ''], ['message', 'watev'])),
+        );
+
+        $env = $command($console)->environment();
+
+        $this->assertNull($env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.1.1\n",
+                "Next release: 1.1.2\n",
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 
     public function testUnsignedReleaseWithEmptyMessageOption()
     {
         $command = new Bugfix(
-            new Git($server = $this->createMock(Server::class), new Clock(new UTC)),
-            new SignedRelease,
-            new UnsignedRelease,
-            new LatestVersion,
-            $sockets = $this->createMock(Sockets::class),
+            new Release(
+                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                new SignedRelease,
+                new UnsignedRelease,
+                new LatestVersion,
+            ),
         );
-        $sockets
-            ->expects($this->any())
-            ->method('watch')
-            ->willReturn(new Select(new ElapsedPeriod(1000)));
         $server
             ->expects($this->any())
             ->method('processes')
@@ -1054,23 +933,35 @@ class BugfixTest extends TestCase
             ->method('execute')
             ->withConsecutive(
                 [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
+                    return $command->toString() === "mkdir '-p' '/somewhere/'";
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '1.1.2'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'push' '--tags'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere/' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -1082,18 +973,12 @@ class BugfixTest extends TestCase
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -1104,61 +989,43 @@ class BugfixTest extends TestCase
             ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
         $process3
             ->expects($this->once())
-            ->method('wait');
-        $process3
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process4
             ->expects($this->once())
-            ->method('wait');
-        $process4
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process5
             ->expects($this->once())
-            ->method('wait');
-        $process5
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
-        $env = $this->createMock(Environment::class);
-        $env
-            ->expects($this->any())
-            ->method('interactive')
-            ->willReturn(true);
-        $env
-            ->expects($this->any())
-            ->method('arguments')
-            ->willReturn(Sequence::strings());
-        $env
-            ->expects($this->once())
-            ->method('workingDirectory')
-            ->willReturn(Path::of('/somewhere'));
-        $env
-            ->expects($this->any())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Writable::class));
-        $output
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of("Current release: 1.1.1\n")],
-                [Str::of("Next release: 1.1.2\n")],
-            );
-        $env
-            ->expects($this->never())
-            ->method('error');
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
 
-        $options = Map::of('string', 'string');
-        $options = $options->put('no-sign', '');
-        $options = $options->put('message', '');
-
-        $this->assertNull($command(
+        $env = Environment\InMemory::of(
+            [],
+            true,
+            [],
+            [],
+            '/somewhere',
+        );
+        $console = Console::of(
             $env,
             new Arguments,
-            new Options($options)
+            new Options(Map::of(['no-sign', ''], ['message', ''])),
+        );
+
+        $env = $command($console)->environment();
+
+        $this->assertNull($env->exitCode()->match(
+            static fn($exit) => $exit->toInt(),
+            static fn() => null,
         ));
+        $this->assertSame(
+            [
+                "Current release: 1.1.1\n",
+                "Next release: 1.1.2\n",
+            ],
+            $env->outputs(),
+        );
+        $this->assertSame([], $env->errors());
     }
 }

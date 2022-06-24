@@ -14,7 +14,7 @@ class BootstrapTest extends TestCase
     {
         $this->assertInstanceOf(
             Commands::class,
-            bootstrap($this->createMock(OperatingSystem::class))
+            bootstrap($this->createMock(OperatingSystem::class)),
         );
     }
 }
