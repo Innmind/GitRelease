@@ -17,7 +17,7 @@
     "require": {
         "php": "~8.1",
         "innmind/immutable": "~4.2",
-        "innmind/git": "^3.0.1",
+        "innmind/git": "^3.0.2",
         "innmind/cli": "~3.0"
     },
     "autoload": {
