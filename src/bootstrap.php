@@ -6,13 +6,15 @@ namespace Innmind\GitRelease;
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Git\Git;
 use Innmind\CLI\Commands;
+use Innmind\Url\Path;
 
-function bootstrap(OperatingSystem $os): Commands
+function bootstrap(OperatingSystem $os, Path $home): Commands
 {
     $release = new Release(
         Git::of(
             $os->control(),
             $os->clock(),
+            $home,
         ),
         new SignedRelease,
         new UnsignedRelease,

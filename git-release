@@ -20,13 +20,23 @@ use Innmind\CLI\{
     Environment,
 };
 use Innmind\OperatingSystem\OperatingSystem;
+use Innmind\Url\Path;
+use Innmind\Immutable\Str;
 
 new class extends Main {
     protected function main(Environment $env, OperatingSystem $os): Environment
     {
-        $run = bootstrap($os);
-
-        return $run($env);
+        return $env
+            ->variables()
+            ->get('HOME')
+            ->map(Path::of(...))
+            ->map(static fn($home) => bootstrap($os, $home))
+            ->match(
+                static fn($run) => $run($env),
+                static fn() => $env
+                    ->output(Str::of("HOME env variable missing\n"))
+                    ->exit(1),
+            );
     }
 };
 
