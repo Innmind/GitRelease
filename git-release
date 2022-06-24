@@ -22,10 +22,11 @@ use Innmind\CLI\{
 use Innmind\OperatingSystem\OperatingSystem;
 
 new class extends Main {
-    protected function main(Environment $env, OperatingSystem $os): void
+    protected function main(Environment $env, OperatingSystem $os): Environment
     {
         $run = bootstrap($os);
-        $run($env);
+
+        return $run($env);
     }
 };
 
