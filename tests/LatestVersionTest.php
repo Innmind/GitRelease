@@ -6,20 +6,22 @@ namespace Tests\Innmind\GitRelease;
 use Innmind\GitRelease\{
     LatestVersion,
     Version,
-    Exception\UnknownVersionFormat,
 };
 use Innmind\Git\Repository;
 use Innmind\Server\Control\{
     Server,
     Server\Processes,
     Server\Process,
-    Server\Process\ExitCode,
     Server\Process\Output,
 };
 use Innmind\Url\Path;
 use Innmind\TimeContinuum\Earth\{
     Clock,
     Timezone\UTC,
+};
+use Innmind\Immutable\{
+    Either,
+    SideEffect,
 };
 use PHPUnit\Framework\TestCase;
 
@@ -94,12 +96,12 @@ OUTPUT;
         $this->assertSame('4.17.0', $version->toString());
     }
 
-    public function testThrowWhenUnknownFormat()
+    public function testReturnVersionZeroWhenUnknownFormat()
     {
-        $this->expectException(UnknownVersionFormat::class);
-        $this->expectExceptionMessage('v1.0.0');
+        $version = $this->fromOutput('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
 
-        $this->fromOutput('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
+        $this->assertInstanceOf(Version::class, $version);
+        $this->assertSame('0.0.0', $version->toString());
     }
 
     private function fromOutput(string $data)
@@ -119,7 +121,10 @@ OUTPUT;
                 })],
                 [$this->callback(static function($command): bool {
                     return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        $command->workingDirectory()->toString() === '/somewhere';
+                        '/somewhere' === $command->workingDirectory()->match(
+                            static fn($directory) => $directory->toString(),
+                            static fn() => null,
+                        );
                 })],
             )
             ->will($this->onConsecutiveCalls(
@@ -128,18 +133,12 @@ OUTPUT;
             ));
         $process1
             ->expects($this->once())
-            ->method('wait');
-        $process1
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
-            ->method('wait');
-        $process2
-            ->expects($this->once())
-            ->method('exitCode')
-            ->willReturn(new ExitCode(0));
+            ->method('wait')
+            ->willReturn(Either::right(new SideEffect));
         $process2
             ->expects($this->once())
             ->method('output')
@@ -148,10 +147,13 @@ OUTPUT;
             ->expects($this->once())
             ->method('toString')
             ->willReturn($data);
-        $repository = new Repository(
+        $repository = Repository::of(
             $server,
             Path::of('/somewhere'),
-            new Clock(new UTC)
+            new Clock(new UTC),
+        )->match(
+            static fn($repo) => $repo,
+            static fn() => null,
         );
 
         return $latestVersion($repository);
