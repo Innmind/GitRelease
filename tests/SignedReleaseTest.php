@@ -38,41 +38,35 @@ class SignedReleaseTest extends TestCase
             ->expects($this->any())
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
+        $process1 = $this->createMock(Process::class);
+        $process2 = $this->createMock(Process::class);
+        $process3 = $this->createMock(Process::class);
+        $process4 = $this->createMock(Process::class);
         $processes
-            ->expects($this->exactly(4))
+            ->expects($matcher = $this->exactly(4))
             ->method('execute')
-            ->withConsecutive(
-                [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
-                })],
-                [$this->callback(static function($command): bool {
-                    return $command->toString() === "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'" &&
-                        '/somewhere' === $command->workingDirectory()->match(
-                            static fn($directory) => $directory->toString(),
-                            static fn() => null,
-                        );
-                })],
-                [$this->callback(static function($command): bool {
-                    return $command->toString() === "git 'push'" &&
-                        '/somewhere' === $command->workingDirectory()->match(
-                            static fn($directory) => $directory->toString(),
-                            static fn() => null,
-                        );
-                })],
-                [$this->callback(static function($command): bool {
-                    return $command->toString() === "git 'push' '--tags'" &&
-                        '/somewhere' === $command->workingDirectory()->match(
-                            static fn($directory) => $directory->toString(),
-                            static fn() => null,
-                        );
-                })],
-            )
-            ->will($this->onConsecutiveCalls(
-                $process1 = $this->createMock(Process::class),
-                $process2 = $this->createMock(Process::class),
-                $process3 = $this->createMock(Process::class),
-                $process4 = $this->createMock(Process::class),
-            ));
+            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertSame("mkdir '-p' '/somewhere'", $command->toString()),
+                    2 => $this->assertSame("git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'", $command->toString()),
+                    3 => $this->assertSame("git 'push'", $command->toString()),
+                    4 => $this->assertSame("git 'push' '--tags'", $command->toString()),
+                };
+
+                if ($matcher->numberOfInvocations() !== 1) {
+                    $this->assertSame('/somewhere', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                }
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => $process1,
+                    2 => $process2,
+                    3 => $process3,
+                    4 => $process4,
+                };
+            });
         $process1
             ->expects($this->once())
             ->method('wait')

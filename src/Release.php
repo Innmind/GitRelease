@@ -66,6 +66,7 @@ final class Release
         if ($console->options()->contains('message')) {
             $message = $console->options()->get('message');
         } else {
+            /** @var Console $console */
             [$message, $console] = (new Question('message:'))($console);
             $message = $message->match(
                 static fn($message) => $message->toString(),
