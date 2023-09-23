@@ -112,25 +112,32 @@ OUTPUT;
             ->expects($this->any())
             ->method('processes')
             ->willReturn($processes = $this->createMock(Processes::class));
+        $process1 = $this->createMock(Process::class);
+        $process2 = $this->createMock(Process::class);
         $processes
-            ->expects($this->exactly(2))
+            ->expects($matcher =$this->exactly(2))
             ->method('execute')
-            ->withConsecutive(
-                [$this->callback(static function($command): bool {
-                    return $command->toString() === "mkdir '-p' '/somewhere'";
-                })],
-                [$this->callback(static function($command): bool {
-                    return $command->toString() === "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'" &&
-                        '/somewhere' === $command->workingDirectory()->match(
-                            static fn($directory) => $directory->toString(),
-                            static fn() => null,
-                        );
-                })],
-            )
-            ->will($this->onConsecutiveCalls(
-                $process1 = $this->createMock(Process::class),
-                $process2 = $this->createMock(Process::class),
-            ));
+            ->willReturnCallback(function($command) use ($matcher, $process1, $process2) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertSame("mkdir '-p' '/somewhere'", $command->toString()),
+                    2 => $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    ),
+                };
+
+                if ($matcher->numberOfInvocations() === 2) {
+                    $this->assertSame('/somewhere', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                }
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => $process1,
+                    2 => $process2,
+                };
+            });
         $process1
             ->expects($this->once())
             ->method('wait')
