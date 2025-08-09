@@ -21,7 +21,7 @@ final class UnsignedRelease
     public function __invoke(
         Repository $repository,
         Version $version,
-        Message $message = null,
+        ?Message $message = null,
     ): Maybe {
         return Name::maybe($version->toString())
             ->flatMap(static fn($name) => $repository->tags()->add($name, $message))
