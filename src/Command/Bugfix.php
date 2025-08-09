@@ -6,9 +6,13 @@ namespace Innmind\GitRelease\Command;
 use Innmind\GitRelease\Release;
 use Innmind\CLI\{
     Command,
+    Command\Name,
+    Command\Usage,
     Console,
 };
+use Innmind\Immutable\Attempt;
 
+#[Name('bugfix', 'Create a new bugfix tag and push it')]
 final class Bugfix implements Command
 {
     private Release $release;
@@ -19,7 +23,7 @@ final class Bugfix implements Command
     }
 
     #[\Override]
-    public function __invoke(Console $console): Console
+    public function __invoke(Console $console): Attempt
     {
         return ($this->release)(
             $console,
@@ -31,12 +35,10 @@ final class Bugfix implements Command
      * @psalm-pure
      */
     #[\Override]
-    public function usage(): string
+    public function usage(): Usage
     {
-        return <<<USAGE
-            bugfix --no-sign --message=
-
-            Create a new bugfix tag and push it
-            USAGE;
+        return Usage::for(self::class)
+            ->flag('no-sign')
+            ->option('message');
     }
 }
