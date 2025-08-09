@@ -4,10 +4,10 @@ declare(strict_types = 1);
 namespace Tests\Innmind\GitRelease;
 
 use function Innmind\GitRelease\bootstrap;
-use Innmind\OperatingSystem\OperatingSystem;
+use Innmind\OperatingSystem\Factory;
 use Innmind\CLI\Commands;
 use Innmind\Url\Path;
-use PHPUnit\Framework\TestCase;
+use Innmind\BlackBox\PHPUnit\Framework\TestCase;
 
 class BootstrapTest extends TestCase
 {
@@ -15,7 +15,7 @@ class BootstrapTest extends TestCase
     {
         $this->assertInstanceOf(
             Commands::class,
-            bootstrap($this->createMock(OperatingSystem::class), Path::of('/')),
+            bootstrap(Factory::build(), Path::of('/')),
         );
     }
 }

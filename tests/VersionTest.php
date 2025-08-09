@@ -4,9 +4,9 @@ declare(strict_types = 1);
 namespace Tests\Innmind\GitRelease;
 
 use Innmind\GitRelease\Version;
-use PHPUnit\Framework\TestCase;
 use Innmind\BlackBox\{
     PHPUnit\BlackBox,
+    PHPUnit\Framework\TestCase,
     Set,
 };
 
@@ -18,9 +18,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertSame(
@@ -37,9 +37,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Set\Integers::below(-1),
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
+                Set::integers()->below(-1),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertNull(Version::of("$major.$minor.$bugfix")->match(
@@ -53,9 +53,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Set\NaturalNumbers::any(),
-                Set\Integers::below(-1),
-                Set\NaturalNumbers::any(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->below(-1),
+                Set::integers()->naturalNumbers(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertNull(Version::of("$major.$minor.$bugfix")->match(
@@ -69,9 +69,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
-                Set\Integers::below(-1),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->below(-1),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $this->assertNull(Version::of("$major.$minor.$bugfix")->match(
@@ -84,7 +84,7 @@ class VersionTest extends TestCase
     public function testReturnNothingWhenNotOfExpectedPattern()
     {
         $this
-            ->forAll(Set\Strings::any())
+            ->forAll(Set::strings())
             ->then(function(string $pattern): void {
                 $this->assertNull(Version::of($pattern)->match(
                     static fn($version) => $version,
@@ -97,9 +97,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = Version::of("$major.$minor.$bugfix")->match(
@@ -118,9 +118,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = Version::of("$major.$minor.$bugfix")->match(
@@ -139,9 +139,9 @@ class VersionTest extends TestCase
     {
         $this
             ->forAll(
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
-                Set\NaturalNumbers::any(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
+                Set::integers()->naturalNumbers(),
             )
             ->then(function(int $major, int $minor, int $bugfix): void {
                 $version = Version::of("$major.$minor.$bugfix")->match(

@@ -6,9 +6,13 @@ namespace Innmind\GitRelease\Command;
 use Innmind\GitRelease\Release;
 use Innmind\CLI\{
     Command,
+    Command\Name,
+    Command\Usage,
     Console,
 };
+use Innmind\Immutable\Attempt;
 
+#[Name('minor', 'Create a new minor tag and push it')]
 final class Minor implements Command
 {
     private Release $release;
@@ -18,7 +22,8 @@ final class Minor implements Command
         $this->release = $release;
     }
 
-    public function __invoke(Console $console): Console
+    #[\Override]
+    public function __invoke(Console $console): Attempt
     {
         return ($this->release)(
             $console,
@@ -29,12 +34,11 @@ final class Minor implements Command
     /**
      * @psalm-pure
      */
-    public function usage(): string
+    #[\Override]
+    public function usage(): Usage
     {
-        return <<<USAGE
-            minor --no-sign --message=
-
-            Create a new minor tag and push it
-            USAGE;
+        return Usage::for(self::class)
+            ->flag('no-sign')
+            ->option('message');
     }
 }
