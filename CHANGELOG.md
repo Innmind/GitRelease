@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Requires `innmind/foundation:^1.7.1`
+
 ### Fixed
 
 - PHP `8.4` deprecations
