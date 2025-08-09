@@ -9,21 +9,22 @@ use Innmind\Git\{
     Repository\Tag\Name,
 };
 use Innmind\Immutable\{
-    Maybe,
+    Attempt,
     SideEffect,
 };
 
 final class UnsignedRelease
 {
     /**
-     * @return Maybe<SideEffect>
+     * @return Attempt<SideEffect>
      */
     public function __invoke(
         Repository $repository,
         Version $version,
         ?Message $message = null,
-    ): Maybe {
+    ): Attempt {
         return Name::maybe($version->toString())
+            ->attempt(static fn() => new \RuntimeException("Invalid version {$version->toString()}"))
             ->flatMap(static fn($name) => $repository->tags()->add($name, $message))
             ->flatMap(static fn() => $repository->push())
             ->flatMap(static fn() => $repository->tags()->push());

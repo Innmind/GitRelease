@@ -11,13 +11,7 @@ use Innmind\GitRelease\{
     Release,
 };
 use Innmind\Git\Git;
-use Innmind\Immutable\Map;
-use Innmind\Server\Control\{
-    Server,
-    Server\Processes,
-    Server\Process,
-    Server\Process\Output,
-};
+use Innmind\Server\Control\Servers\Mock;
 use Innmind\CLI\{
     Command,
     Command\Arguments,
@@ -25,15 +19,9 @@ use Innmind\CLI\{
     Environment,
     Console,
 };
-use Innmind\TimeContinuum\Earth\{
-    Clock,
-    Timezone\UTC,
-};
-use Innmind\Immutable\{
-    Either,
-    SideEffect,
-};
-use PHPUnit\Framework\TestCase;
+use Innmind\TimeContinuum\Clock;
+use Innmind\Immutable\Map;
+use Innmind\BlackBox\PHPUnit\Framework\TestCase;
 
 class MajorTest extends TestCase
 {
@@ -43,7 +31,10 @@ class MajorTest extends TestCase
             Command::class,
             new Major(
                 new Release(
-                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    Git::of(
+                        Mock::new($this->assert()),
+                        Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                    ),
                     new SignedRelease,
                     new UnsignedRelease,
                     new LatestVersion,
@@ -55,95 +46,67 @@ class MajorTest extends TestCase
     public function testUsage()
     {
         $this->assertSame(
-            "major --no-sign --message=\n\nCreate a new major tag and push it",
+            "major --no-sign --message= --help --no-interaction\n\nCreate a new major tag and push it",
             (new Major(
                 new Release(
-                    Git::of($this->createMock(Server::class), new Clock(new UTC)),
+                    Git::of(
+                        Mock::new($this->assert()),
+                        Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                    ),
                     new SignedRelease,
                     new UnsignedRelease,
                     new LatestVersion,
                 ),
-            ))->usage(),
+            ))->usage()->toString(),
         );
     }
 
     public function testCreateVersionZeroWhenUnknownVersionFormat()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    'v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            )
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'tag' '1.0.0'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push' '--tags'",
+                $command->toString(),
+            ));
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $process3 = $this->createMock(Process::class);
-        $process4 = $this->createMock(Process::class);
-        $process5 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(5))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4, $process5) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                    3 => $this->assertSame("git 'tag' '1.0.0'", $command->toString()),
-                    4 => $this->assertSame("git 'push'", $command->toString()),
-                    5 => $this->assertSame("git 'push' '--tags'", $command->toString()),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                    3 => $process3,
-                    4 => $process4,
-                    5 => $process5,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $process3
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process4
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process5
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
             ["\n"],
@@ -158,7 +121,7 @@ class MajorTest extends TestCase
             new Options(Map::of(['no-sign', ''])),
         );
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -177,60 +140,38 @@ class MajorTest extends TestCase
 
     public function testExitWhenEmptyMessageWithSignedRelease()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            );
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(2))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
 
         $env = Environment\InMemory::of(
             ["\n"],
@@ -241,7 +182,7 @@ class MajorTest extends TestCase
         );
         $console = Console::of($env, new Arguments, new Options);
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertSame(1, $env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -260,81 +201,50 @@ class MajorTest extends TestCase
 
     public function testExitWhenEmptyMessageWithUnsignedRelease()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            )
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'tag' '2.0.0'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push' '--tags'",
+                $command->toString(),
+            ));
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $process3 = $this->createMock(Process::class);
-        $process4 = $this->createMock(Process::class);
-        $process5 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(5))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4, $process5) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                    3 => $this->assertSame("git 'tag' '2.0.0'", $command->toString()),
-                    4 => $this->assertSame("git 'push'", $command->toString()),
-                    5 => $this->assertSame("git 'push' '--tags'", $command->toString()),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                    3 => $process3,
-                    4 => $process4,
-                    5 => $process5,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $process3
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process4
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process5
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
             ["\n"],
@@ -349,7 +259,7 @@ class MajorTest extends TestCase
             new Options(Map::of(['no-sign', ''])),
         );
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -368,81 +278,50 @@ class MajorTest extends TestCase
 
     public function testSignedRelease()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            )
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'tag' '-s' '-a' '2.0.0' '-m' 'watev'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push' '--tags'",
+                $command->toString(),
+            ));
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $process3 = $this->createMock(Process::class);
-        $process4 = $this->createMock(Process::class);
-        $process5 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(5))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4, $process5) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                    3 => $this->assertSame("git 'tag' '-s' '-a' '2.0.0' '-m' 'watev'", $command->toString()),
-                    4 => $this->assertSame("git 'push'", $command->toString()),
-                    5 => $this->assertSame("git 'push' '--tags'", $command->toString()),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                    3 => $process3,
-                    4 => $process4,
-                    5 => $process5,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $process3
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process4
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process5
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
             ["watev\n"],
@@ -453,7 +332,7 @@ class MajorTest extends TestCase
         );
         $console = Console::of($env, new Arguments, new Options);
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -472,81 +351,50 @@ class MajorTest extends TestCase
 
     public function testUnsignedRelease()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            )
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'tag' '2.0.0' '-a' '-m' 'watev'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push' '--tags'",
+                $command->toString(),
+            ));
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $process3 = $this->createMock(Process::class);
-        $process4 = $this->createMock(Process::class);
-        $process5 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(5))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4, $process5) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                    3 => $this->assertSame("git 'tag' '2.0.0' '-a' '-m' 'watev'", $command->toString()),
-                    4 => $this->assertSame("git 'push'", $command->toString()),
-                    5 => $this->assertSame("git 'push' '--tags'", $command->toString()),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                    3 => $process3,
-                    4 => $process4,
-                    5 => $process5,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $process3
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process4
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process5
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
             ["watev\n"],
@@ -561,7 +409,7 @@ class MajorTest extends TestCase
             new Options(Map::of(['no-sign', ''])),
         );
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -580,81 +428,50 @@ class MajorTest extends TestCase
 
     public function testSignedReleaseWithMessageOption()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            )
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'tag' '-s' '-a' '2.0.0' '-m' 'watev'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push' '--tags'",
+                $command->toString(),
+            ));
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $process3 = $this->createMock(Process::class);
-        $process4 = $this->createMock(Process::class);
-        $process5 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(5))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4, $process5) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                    3 => $this->assertSame("git 'tag' '-s' '-a' '2.0.0' '-m' 'watev'", $command->toString()),
-                    4 => $this->assertSame("git 'push'", $command->toString()),
-                    5 => $this->assertSame("git 'push' '--tags'", $command->toString()),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                    3 => $process3,
-                    4 => $process4,
-                    5 => $process5,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $process3
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process4
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process5
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
             [],
@@ -669,7 +486,7 @@ class MajorTest extends TestCase
             new Options(Map::of(['message', 'watev'])),
         );
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -687,60 +504,38 @@ class MajorTest extends TestCase
 
     public function testExitWhenSignedReleaseWithEmptyMessageOption()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            );
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(2))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
 
         $env = Environment\InMemory::of(
             [],
@@ -755,7 +550,7 @@ class MajorTest extends TestCase
             new Options(Map::of(['message', ''])),
         );
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertSame(1, $env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -773,81 +568,50 @@ class MajorTest extends TestCase
 
     public function testUnsignedReleaseWithMessageOption()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            )
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'tag' '2.0.0' '-a' '-m' 'watev'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push' '--tags'",
+                $command->toString(),
+            ));
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $process3 = $this->createMock(Process::class);
-        $process4 = $this->createMock(Process::class);
-        $process5 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(5))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4, $process5) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                    3 => $this->assertSame("git 'tag' '2.0.0' '-a' '-m' 'watev'", $command->toString()),
-                    4 => $this->assertSame("git 'push'", $command->toString()),
-                    5 => $this->assertSame("git 'push' '--tags'", $command->toString()),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                    3 => $process3,
-                    4 => $process4,
-                    5 => $process5,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $process3
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process4
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process5
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
             [],
@@ -862,7 +626,7 @@ class MajorTest extends TestCase
             new Options(Map::of(['no-sign', ''], ['message', 'watev'])),
         );
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),
@@ -880,81 +644,50 @@ class MajorTest extends TestCase
 
     public function testUnsignedReleaseWithEmptyMessageOption()
     {
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere/'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
+                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        $command->toString(),
+                    );
+                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                },
+                static fn($_, $builder) => $builder->success([[
+                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                    'output',
+                ]]),
+            )
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'tag' '2.0.0'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push'",
+                $command->toString(),
+            ))
+            ->willExecute(fn($command) => $this->assertSame(
+                "git 'push' '--tags'",
+                $command->toString(),
+            ));
         $command = new Major(
             new Release(
-                Git::of($server = $this->createMock(Server::class), new Clock(new UTC)),
+                Git::of(
+                    $server,
+                    Clock::live()->switch(static fn($timezones) => $timezones->utc()),
+                ),
                 new SignedRelease,
                 new UnsignedRelease,
                 new LatestVersion,
             ),
         );
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $process3 = $this->createMock(Process::class);
-        $process4 = $this->createMock(Process::class);
-        $process5 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher = $this->exactly(5))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2, $process3, $process4, $process5) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere/'", $command->toString()),
-                    2 => $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    ),
-                    3 => $this->assertSame("git 'tag' '2.0.0'", $command->toString()),
-                    4 => $this->assertSame("git 'push'", $command->toString()),
-                    5 => $this->assertSame("git 'push' '--tags'", $command->toString()),
-                };
-
-                if ($matcher->numberOfInvocations() !== 1) {
-                    $this->assertSame('/somewhere/', $command->workingDirectory()->match(
-                        static fn($directory) => $directory->toString(),
-                        static fn() => null,
-                    ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                    3 => $process3,
-                    4 => $process4,
-                    5 => $process5,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn('1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100');
-        $process3
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process4
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process5
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
 
         $env = Environment\InMemory::of(
             [],
@@ -969,7 +702,7 @@ class MajorTest extends TestCase
             new Options(Map::of(['no-sign', ''], ['message', ''])),
         );
 
-        $env = $command($console)->environment();
+        $env = $command($console)->unwrap()->environment();
 
         $this->assertNull($env->exitCode()->match(
             static fn($exit) => $exit->toInt(),

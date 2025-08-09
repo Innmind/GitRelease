@@ -8,22 +8,10 @@ use Innmind\GitRelease\{
     Version,
 };
 use Innmind\Git\Repository;
-use Innmind\Server\Control\{
-    Server,
-    Server\Processes,
-    Server\Process,
-    Server\Process\Output,
-};
+use Innmind\Server\Control\Servers\Mock;
 use Innmind\Url\Path;
-use Innmind\TimeContinuum\Earth\{
-    Clock,
-    Timezone\UTC,
-};
-use Innmind\Immutable\{
-    Either,
-    SideEffect,
-};
-use PHPUnit\Framework\TestCase;
+use Innmind\TimeContinuum\Clock;
+use Innmind\BlackBox\PHPUnit\Framework\TestCase;
 
 class LatestVersionTest extends TestCase
 {
@@ -107,57 +95,31 @@ OUTPUT;
     private function fromOutput(string $data)
     {
         $latestVersion = new LatestVersion;
-        $server = $this->createMock(Server::class);
-        $server
-            ->expects($this->any())
-            ->method('processes')
-            ->willReturn($processes = $this->createMock(Processes::class));
-        $process1 = $this->createMock(Process::class);
-        $process2 = $this->createMock(Process::class);
-        $processes
-            ->expects($matcher =$this->exactly(2))
-            ->method('execute')
-            ->willReturnCallback(function($command) use ($matcher, $process1, $process2) {
-                match ($matcher->numberOfInvocations()) {
-                    1 => $this->assertSame("mkdir '-p' '/somewhere'", $command->toString()),
-                    2 => $this->assertSame(
+        $server = Mock::new($this->assert())
+            ->willExecute(fn($command) => $this->assertSame(
+                "mkdir '-p' '/somewhere'",
+                $command->toString(),
+            ))
+            ->willExecute(
+                function($command) {
+                    $this->assertSame(
                         "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
                         $command->toString(),
-                    ),
-                };
-
-                if ($matcher->numberOfInvocations() === 2) {
+                    );
                     $this->assertSame('/somewhere', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                }
-
-                return match ($matcher->numberOfInvocations()) {
-                    1 => $process1,
-                    2 => $process2,
-                };
-            });
-        $process1
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('wait')
-            ->willReturn(Either::right(new SideEffect));
-        $process2
-            ->expects($this->once())
-            ->method('output')
-            ->willReturn($output = $this->createMock(Output::class));
-        $output
-            ->expects($this->once())
-            ->method('toString')
-            ->willReturn($data);
+                },
+                static fn($_, $builder) => $builder->success([[
+                    $data,
+                    'output',
+                ]]),
+            );
         $repository = Repository::of(
             $server,
             Path::of('/somewhere'),
-            new Clock(new UTC),
+            Clock::live()->switch(static fn($timezones) => $timezones->utc()),
         )->match(
             static fn($repo) => $repo,
             static fn() => null,
