@@ -18,6 +18,7 @@ final class Bugfix implements Command
         $this->release = $release;
     }
 
+    #[\Override]
     public function __invoke(Console $console): Console
     {
         return ($this->release)(
@@ -29,6 +30,7 @@ final class Bugfix implements Command
     /**
      * @psalm-pure
      */
+    #[\Override]
     public function usage(): string
     {
         return <<<USAGE
