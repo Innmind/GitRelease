@@ -30,8 +30,6 @@ use Innmind\TimeContinuum\Earth\{
     Timezone\UTC,
 };
 use Innmind\Immutable\{
-    Str,
-    Sequence,
     Either,
     SideEffect,
 };
