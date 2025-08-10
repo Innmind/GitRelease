@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Binary still used old code and thus couldn't run
+
 ## 3.2.0 - 2025-08-09
 
 ### Changed

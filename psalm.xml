@@ -10,6 +10,7 @@
 >
     <projectFiles>
         <directory name="src" />
+        <file name="git-release" />
         <ignoreFiles>
             <directory name="vendor" />
         </ignoreFiles>
