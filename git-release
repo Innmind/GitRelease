@@ -21,10 +21,14 @@ use Innmind\CLI\{
 };
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Url\Path;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Attempt,
+};
 
 new class extends Main {
-    protected function main(Environment $env, OperatingSystem $os): Environment
+    #[\Override]
+    protected function main(Environment $env, OperatingSystem $os): Attempt
     {
         return $env
             ->variables()
@@ -34,8 +38,8 @@ new class extends Main {
             ->match(
                 static fn($run) => $run($env),
                 static fn() => $env
-                    ->output(Str::of("HOME env variable missing\n"))
-                    ->exit(1),
+                    ->exit(1)
+                    ->output(Str::of("HOME env variable missing\n")),
             );
     }
 };
