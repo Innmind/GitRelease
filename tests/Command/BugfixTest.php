@@ -11,7 +11,10 @@ use Innmind\GitRelease\{
     Release,
 };
 use Innmind\Git\Git;
-use Innmind\Server\Control\Servers\Mock;
+use Innmind\Server\Control\{
+    Server,
+    Server\Process\Builder,
+};
 use Innmind\CLI\{
     Command,
     Command\Arguments,
@@ -19,8 +22,11 @@ use Innmind\CLI\{
     Environment,
     Console,
 };
-use Innmind\TimeContinuum\Clock;
-use Innmind\Immutable\Map;
+use Innmind\Time\Clock;
+use Innmind\Immutable\{
+    Map,
+    Attempt,
+};
 use Innmind\BlackBox\PHPUnit\Framework\TestCase;
 
 class BugfixTest extends TestCase
@@ -32,7 +38,7 @@ class BugfixTest extends TestCase
             new Bugfix(
                 new Release(
                     Git::of(
-                        Mock::new($this->assert()),
+                        Server::via(static fn() => null),
                         Clock::live()->switch(static fn($timezones) => $timezones->utc()),
                     ),
                     new SignedRelease,
@@ -50,7 +56,7 @@ class BugfixTest extends TestCase
             (new Bugfix(
                 new Release(
                     Git::of(
-                        Mock::new($this->assert()),
+                        Server::via(static fn() => null),
                         Clock::live()->switch(static fn($timezones) => $timezones->utc()),
                     ),
                     new SignedRelease,
@@ -63,39 +69,38 @@ class BugfixTest extends TestCase
 
     public function testCreateVersionZeroWhenUnknownVersionFormat()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        2 => "git 'tag' '0.0.1'",
+                        3 => "git 'push'",
+                        4 => "git 'push' '--tags'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    'v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            )
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'tag' '0.0.1'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+                    $builder = $builder->success([[
+                        'v1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -108,7 +113,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             ["\n"],
             true,
             [],
@@ -133,34 +138,44 @@ class BugfixTest extends TestCase
                 "Next release: 0.0.1\n",
                 'message: ',
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame([], $env->errors());
     }
 
     public function testExitWhenEmptyMessageWithSignedRelease()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            );
+                    $builder = $builder->success([[
+                        '1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -173,7 +188,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             ["\n"],
             true,
             [],
@@ -193,47 +208,49 @@ class BugfixTest extends TestCase
                 "Current release: 1.0.0\n",
                 "Next release: 1.0.1\n",
                 'message: ',
+                "Invalid message\n",
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame(["Invalid message\n"], $env->errors());
     }
 
     public function testExitWhenEmptyMessageWithUnsignedRelease()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        2 => "git 'tag' '1.1.2'",
+                        3 => "git 'push'",
+                        4 => "git 'push' '--tags'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            )
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'tag' '1.1.2'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+                    $builder = $builder->success([[
+                        '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -246,7 +263,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             ["\n"],
             true,
             [],
@@ -271,46 +288,47 @@ class BugfixTest extends TestCase
                 "Next release: 1.1.2\n",
                 'message: ',
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame([], $env->errors());
     }
 
     public function testSignedRelease()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        2 => "git 'tag' '-s' '-a' '1.1.2' '-m' 'watev'",
+                        3 => "git 'push'",
+                        4 => "git 'push' '--tags'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            )
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'tag' '-s' '-a' '1.1.2' '-m' 'watev'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+                    $builder = $builder->success([[
+                        '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -323,7 +341,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             ["watev\n"],
             true,
             [],
@@ -344,46 +362,47 @@ class BugfixTest extends TestCase
                 "Next release: 1.1.2\n",
                 'message: ',
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame([], $env->errors());
     }
 
     public function testUnsignedRelease()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        2 => "git 'tag' '1.1.2' '-a' '-m' 'watev'",
+                        3 => "git 'push'",
+                        4 => "git 'push' '--tags'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            )
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'tag' '1.1.2' '-a' '-m' 'watev'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+                    $builder = $builder->success([[
+                        '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -396,7 +415,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             ["watev\n"],
             true,
             [],
@@ -421,46 +440,47 @@ class BugfixTest extends TestCase
                 "Next release: 1.1.2\n",
                 'message: ',
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame([], $env->errors());
     }
 
     public function testSignedReleaseWithMessageOption()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        2 => "git 'tag' '-s' '-a' '1.1.2' '-m' 'watev'",
+                        3 => "git 'push'",
+                        4 => "git 'push' '--tags'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            )
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'tag' '-s' '-a' '1.1.2' '-m' 'watev'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+                    $builder = $builder->success([[
+                        '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -473,7 +493,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             [],
             true,
             [],
@@ -497,34 +517,44 @@ class BugfixTest extends TestCase
                 "Current release: 1.1.1\n",
                 "Next release: 1.1.2\n",
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame([], $env->errors());
     }
 
     public function testExitWhenSignedReleaseWithEmptyMessageOption()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            );
+                    $builder = $builder->success([[
+                        '1.0.0|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -537,7 +567,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             [],
             true,
             [],
@@ -560,47 +590,49 @@ class BugfixTest extends TestCase
             [
                 "Current release: 1.0.0\n",
                 "Next release: 1.0.1\n",
+                "Invalid message\n",
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame(["Invalid message\n"], $env->errors());
     }
 
     public function testUnsignedReleaseWithMessageOption()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        2 => "git 'tag' '1.1.2' '-a' '-m' 'watev'",
+                        3 => "git 'push'",
+                        4 => "git 'push' '--tags'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            )
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'tag' '1.1.2' '-a' '-m' 'watev'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+                    $builder = $builder->success([[
+                        '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -613,7 +645,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             [],
             true,
             [],
@@ -637,46 +669,47 @@ class BugfixTest extends TestCase
                 "Current release: 1.1.1\n",
                 "Next release: 1.1.2\n",
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame([], $env->errors());
     }
 
     public function testUnsignedReleaseWithEmptyMessageOption()
     {
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere/'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere/'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                        2 => "git 'tag' '1.1.2'",
+                        3 => "git 'push'",
+                        4 => "git 'push' '--tags'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere/', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
-                    'output',
-                ]]),
-            )
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'tag' '1.1.2'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+                    $builder = $builder->success([[
+                        '1.1.1|||foo|||Sat, 16 Mar 2019 12:09:24 +0100',
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $command = new Bugfix(
             new Release(
                 Git::of(
@@ -689,7 +722,7 @@ class BugfixTest extends TestCase
             ),
         );
 
-        $env = Environment\InMemory::of(
+        $env = Environment::inMemory(
             [],
             true,
             [],
@@ -713,8 +746,10 @@ class BugfixTest extends TestCase
                 "Current release: 1.1.1\n",
                 "Next release: 1.1.2\n",
             ],
-            $env->outputs(),
+            $env
+                ->outputted()
+                ->map(static fn($pair) => $pair[0]->toString())
+                ->toList(),
         );
-        $this->assertSame([], $env->errors());
     }
 }

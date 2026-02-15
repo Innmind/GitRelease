@@ -8,9 +8,13 @@ use Innmind\GitRelease\{
     Version,
 };
 use Innmind\Git\Repository;
-use Innmind\Server\Control\Servers\Mock;
+use Innmind\Server\Control\{
+    Server,
+    Server\Process\Builder,
+};
 use Innmind\Url\Path;
-use Innmind\TimeContinuum\Clock;
+use Innmind\Time\Clock;
+use Innmind\Immutable\Attempt;
 use Innmind\BlackBox\PHPUnit\Framework\TestCase;
 
 class LatestVersionTest extends TestCase
@@ -95,27 +99,35 @@ OUTPUT;
     private function fromOutput(string $data)
     {
         $latestVersion = new LatestVersion;
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere'",
-                $command->toString(),
-            ))
-            ->willExecute(
-                function($command) {
-                    $this->assertSame(
-                        "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        $command->toString(),
-                    );
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count, $data) {
+                $this->assertSame(
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere'",
+                        1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
+                    },
+                    $command->toString(),
+                );
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
                     $this->assertSame('/somewhere', $command->workingDirectory()->match(
                         static fn($directory) => $directory->toString(),
                         static fn() => null,
                     ));
-                },
-                static fn($_, $builder) => $builder->success([[
-                    $data,
-                    'output',
-                ]]),
-            );
+                    $builder = $builder->success([[
+                        $data,
+                        'output',
+                    ]]);
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $repository = Repository::of(
             $server,
             Path::of('/somewhere'),

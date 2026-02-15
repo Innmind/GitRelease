@@ -1,6 +1,6 @@
 # Git Release
 
-[![Build Status](https://github.com/Innmind/GitRelease/workflows/CI/badge.svg?branch=master)](https://github.com/Innmind/GitRelease/actions?query=workflow%3ACI)
+[![CI](https://github.com/Innmind/GitRelease/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Innmind/GitRelease/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Innmind/GitRelease/branch/develop/graph/badge.svg)](https://codecov.io/gh/Innmind/GitRelease)
 [![Type Coverage](https://shepherd.dev/github/Innmind/GitRelease/coverage.svg)](https://shepherd.dev/github/Innmind/GitRelease)
 
