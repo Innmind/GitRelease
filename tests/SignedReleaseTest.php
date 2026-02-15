@@ -11,10 +11,16 @@ use Innmind\Git\{
     Repository,
     Message,
 };
-use Innmind\Server\Control\Servers\Mock;
+use Innmind\Server\Control\{
+    Server,
+    Server\Process\Builder,
+};
 use Innmind\Url\Path;
-use Innmind\TimeContinuum\Clock;
-use Innmind\Immutable\SideEffect;
+use Innmind\Time\Clock;
+use Innmind\Immutable\{
+    Attempt,
+    SideEffect,
+};
 use Innmind\BlackBox\PHPUnit\Framework\TestCase;
 
 class SignedReleaseTest extends TestCase
@@ -22,29 +28,33 @@ class SignedReleaseTest extends TestCase
     public function testInvokation()
     {
         $release = new SignedRelease;
-        $server = Mock::new($this->assert())
-            ->willExecute(fn($command) => $this->assertSame(
-                "mkdir '-p' '/somewhere'",
-                $command->toString(),
-            ))
-            ->willExecute(function($command) {
+        $count = 0;
+        $server = Server::via(
+            function($command) use (&$count) {
                 $this->assertSame(
-                    "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'",
+                    match ($count) {
+                        0 => "mkdir '-p' '/somewhere'",
+                        1 => "git 'tag' '-s' '-a' '1.0.0' '-m' 'watev'",
+                        2 => "git 'push'",
+                        3 => "git 'push' '--tags'",
+                    },
                     $command->toString(),
                 );
-                $this->assertSame('/somewhere', $command->workingDirectory()->match(
-                    static fn($directory) => $directory->toString(),
-                    static fn() => null,
-                ));
-            })
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push'",
-                $command->toString(),
-            ))
-            ->willExecute(fn($command) => $this->assertSame(
-                "git 'push' '--tags'",
-                $command->toString(),
-            ));
+
+                $builder = Builder::foreground(2 + $count);
+
+                if ($count === 1) {
+                    $this->assertSame('/somewhere', $command->workingDirectory()->match(
+                        static fn($directory) => $directory->toString(),
+                        static fn() => null,
+                    ));
+                }
+
+                ++$count;
+
+                return Attempt::result($builder->build());
+            },
+        );
         $path = Path::of('/somewhere');
 
         $this->assertInstanceOf(
