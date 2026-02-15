@@ -521,9 +521,6 @@ class MinorTest extends TestCase
                     match ($count) {
                         0 => "mkdir '-p' '/somewhere/'",
                         1 => "git 'tag' '--list' '--format=%(refname:strip=2)|||%(subject)|||%(creatordate:rfc2822)'",
-                        2 => "git 'tag' '1.2.0'",
-                        3 => "git 'push'",
-                        4 => "git 'push' '--tags'",
                     },
                     $command->toString(),
                 );
